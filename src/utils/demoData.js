@@ -60,6 +60,123 @@ export const initializeDemoData = () => {
 
     localStorage.setItem('quickmeal_store_settings', JSON.stringify(demoStoreSettings));
 
+    // Create demo merchant config with proper pricing
+    const demoMerchantConfig = {
+      mealTimes: ["Breakfast", "Lunch", "Dinner"],
+      activeMealTime: "Lunch",
+      defaultVegCount: 2,
+      extraVegPrice: 50,
+      
+      // Portions
+      portions: [
+        { id: "full", name: "Full", multiplier: 1 },
+        { id: "half", name: "Half", multiplier: 0.5 },
+        { id: "small", name: "Small", multiplier: 0.3 },
+      ],
+      
+      // Main meals with portion-based pricing
+      mains: [
+        {
+          id: "rice-curry",
+          name: "Rice & Curry",
+          prices: {
+            full: 300,
+            half: 200, 
+            small: 150
+          },
+          available: true,
+        },
+      ],
+      
+      // Curries with pricing
+      curries: [
+        {
+          id: "potato-curry",
+          name: "Potato Curry",
+          type: "veg",
+          available: true,
+        },
+        {
+          id: "fish-curry",
+          name: "Fish Curry",
+          type: "nonveg",
+          available: true,
+          divisible: true,
+          prices: {
+            full: 120,
+            half: 80,
+            small: 60
+          },
+          extraPiecePrice: 40,
+        },
+      ],
+      
+      gravies: []
+    };
+
+    localStorage.setItem('merchantConfig', JSON.stringify(demoMerchantConfig));
+  }
+
+  // Always ensure merchantConfig has proper pricing (even if users exist)
+  const existingMerchantConfig = localStorage.getItem('merchantConfig');
+  if (!existingMerchantConfig) {
+    const demoMerchantConfig = {
+      mealTimes: ["Breakfast", "Lunch", "Dinner"],
+      activeMealTime: "Lunch",
+      defaultVegCount: 2,
+      extraVegPrice: 50,
+      
+      // Portions
+      portions: [
+        { id: "full", name: "Full", multiplier: 1 },
+        { id: "half", name: "Half", multiplier: 0.5 },
+        { id: "small", name: "Small", multiplier: 0.3 },
+      ],
+      
+      // Main meals with portion-based pricing
+      mains: [
+        {
+          id: "rice-curry",
+          name: "Rice & Curry",
+          prices: {
+            full: 300,
+            half: 200, 
+            small: 150
+          },
+          available: true,
+        },
+      ],
+      
+      // Curries with pricing
+      curries: [
+        {
+          id: "potato-curry",
+          name: "Potato Curry",
+          type: "veg",
+          available: true,
+        },
+        {
+          id: "fish-curry",
+          name: "Fish Curry",
+          type: "nonveg",
+          available: true,
+          divisible: true,
+          prices: {
+            full: 120,
+            half: 80,
+            small: 60
+          },
+          extraPiecePrice: 40,
+        },
+      ],
+      
+      gravies: []
+    };
+
+    localStorage.setItem('merchantConfig', JSON.stringify(demoMerchantConfig));
+  }
+
+  if (!existingUsers) {
     // Create demo orders
     const demoOrders = [
       {

@@ -247,7 +247,7 @@ const OrderPage = () => {
                           onChange={() => updateMeal(index, { mainMeal: m.id })}
                         />
                         <span>
-                          {m.name} (${m.price})
+                          {m.name}
                         </span>
                       </label>
                     ))}
@@ -268,7 +268,7 @@ const OrderPage = () => {
                           onChange={() => updateMeal(index, { portion: p.id })}
                         />
                         <span>
-                          {p.name} (+${p.price})
+                          {p.name}
                         </span>
                       </label>
                     ))}

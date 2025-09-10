@@ -1,0 +1,81 @@
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Helmet } from "react-helmet";
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { MerchantConfigProvider } from "@/store/merchantConfig"; // ✅ import provider
+
+// Pages
+import HomePage from "@/pages/HomePage";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
+import CustomerDashboard from "@/pages/CustomerDashboard";
+import MerchantDashboard from "@/pages/MerchantDashboard";
+import AdminDashboard from "@/pages/AdminDashboard";
+import OrderPage from "@/pages/OrderPage";
+import ReceiptPage from "@/pages/ReceiptPage";
+import CustomizeMeal from "@/pages/CustomizeMeal";
+
+// Merchant tools
+import MenuPricing from "@/pages/Merchant/MenuPricing";
+import StoreSettings from "@/pages/Merchant/StoreSettings";
+
+// Routes
+const AppRoutes = () => {
+  return (
+    <Routes>
+      {/* Public pages */}
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
+      {/* Dashboards */}
+      <Route path="/customer" element={<CustomerDashboard />} />
+      <Route path="/merchant" element={<MerchantDashboard />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+
+      {/* Orders */}
+      <Route path="/order/:storeId" element={<OrderPage />} />
+      <Route path="/receipt/:orderId" element={<ReceiptPage />} />
+
+      {/* Custom meal builder */}
+      <Route path="/customize" element={<CustomizeMeal />} />
+
+      {/* Merchant-specific pages */}
+      <Route path="/merchant/menu" element={<MenuPricing />} />
+      <Route path="/merchant/settings" element={<StoreSettings />} />
+    </Routes>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <MerchantConfigProvider> {/* ✅ now context is available */}
+        <Router>
+          <Helmet>
+            <title>QuickMeal - Pre-Order Your Meals</title>
+            <meta
+              name="description"
+              content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
+            />
+            <meta
+              property="og:title"
+              content="QuickMeal - Pre-Order Your Meals"
+            />
+            <meta
+              property="og:description"
+              content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
+            />
+          </Helmet>
+
+          <AppRoutes />
+
+          <Toaster />
+        </Router>
+      </MerchantConfigProvider>
+    </AuthProvider>
+  );
+}
+
+export default App;

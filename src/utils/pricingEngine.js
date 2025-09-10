@@ -39,14 +39,14 @@ export const calculateMealPrice = (meal, storeSettings) => {
         if (curry.divisible) {
           const basePrice = curry.prices?.[portionId] || 0;
           total += parseFloat(basePrice) * (nv.pieces || 1);
-
-          // extra piece → single price (not per portion)
-          if (nv.extraPieces && curry.extraPiecePrice) {
-            total += parseFloat(curry.extraPiecePrice) * nv.extraPieces;
-          }
         } else {
           const basePrice = curry.prices?.[portionId] || 0;
           total += parseFloat(basePrice);
+          
+          // extra piece → single price (for non-divisible items)
+          if (nv.extraPieces && curry.extraPiecePrice) {
+            total += parseFloat(curry.extraPiecePrice) * nv.extraPieces;
+          }
         }
       }
     });

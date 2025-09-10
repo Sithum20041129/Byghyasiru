@@ -1,5 +1,5 @@
 // src/pages/OrderPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -16,7 +16,6 @@ const createNewMeal = () => ({
   vegCurries: [],
   nonVegCurries: [],
   gravies: [],
-  total: 0,
 });
 
 const OrderPage = () => {
@@ -25,7 +24,6 @@ const OrderPage = () => {
   const [storeSettings, setStoreSettings] = useState(null);
   const [merchantConfig, setMerchantConfig] = useState(null);
   const [meals, setMeals] = useState([createNewMeal()]);
-  const [orderTotal, setOrderTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -92,16 +90,19 @@ const OrderPage = () => {
     });
   }, []);
 
-  /** 🔹 Auto recalc prices */
-  useEffect(() => {
-    if (!storeSettings || !merchantConfig) return;
-    const updatedMeals = meals.map((meal) => ({
+  /** 🔹 Calculate meal prices using useMemo to avoid render loop */
+  const mealsWithTotals = useMemo(() => {
+    if (!storeSettings || !merchantConfig) return meals.map(meal => ({ ...meal, total: 0 }));
+    return meals.map((meal) => ({
       ...meal,
       total: calculateMealPrice(meal, { ...storeSettings, ...merchantConfig }),
     }));
-    setMeals(updatedMeals);
-    setOrderTotal(updatedMeals.reduce((sum, meal) => sum + meal.total, 0));
   }, [meals, storeSettings, merchantConfig]);
+
+  /** 🔹 Calculate order total using useMemo */
+  const calculatedOrderTotal = useMemo(() => {
+    return mealsWithTotals.reduce((sum, meal) => sum + meal.total, 0);
+  }, [mealsWithTotals]);
 
   const addAnotherMeal = () => {
     setMeals((prev) => [...prev, createNewMeal()]);
@@ -113,7 +114,7 @@ const OrderPage = () => {
 
   /** 🔹 Handle order submission */
   const handleSubmitOrder = async () => {
-    for (const meal of meals) {
+    for (const meal of mealsWithTotals) {
       if (!meal.mainMeal || !meal.portion) {
         toast({
           title: "Incomplete Order",
@@ -138,8 +139,8 @@ const OrderPage = () => {
         customerName: user.username,
         storeId: store.id,
         storeName: store.storeName,
-        meals,
-        total: orderTotal,
+        meals: mealsWithTotals,
+        total: calculatedOrderTotal,
         status: "pending",
         createdAt: new Date().toISOString(),
       };
@@ -213,7 +214,7 @@ const OrderPage = () => {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left: Meals */}
           <div className="lg:col-span-2 space-y-6">
-            {meals.map((meal, index) => (
+            {mealsWithTotals.map((meal, index) => (
               <div
                 key={meal.id}
                 className="p-4 border-2 border-dashed rounded-lg space-y-6 relative"
@@ -279,8 +280,8 @@ const OrderPage = () => {
                 <div>
                   <label className="block font-medium">Veg Curries</label>
                   <p className="text-sm text-gray-500">
-                    First {storeSettings.defaultVegCount || 0} veg curries are
-                    free. Extra curries cost ${storeSettings.extraVegPrice || 0}{" "}
+                    First {merchantConfig?.defaultVegCount || 0} veg curries are
+                    free. Extra curries cost ${merchantConfig?.extraVegPrice || 0}{" "}
                     each.
                   </p>
                   <div className="grid grid-cols-2 gap-2 mt-2">
@@ -426,7 +427,7 @@ const OrderPage = () => {
           <div className="lg:col-span-1">
             <div className="p-4 border rounded-lg space-y-4">
               <h3 className="text-xl font-bold">Order Summary</h3>
-              {meals.map((meal, i) => {
+              {mealsWithTotals.map((meal, i) => {
                 const main = mainMeals.find((m) => m.id === meal.mainMeal);
                 const portion = portions.find((p) => p.id === meal.portion);
 
@@ -482,7 +483,7 @@ const OrderPage = () => {
               })}
 
               <div className="text-lg font-bold">
-                Order Total: ${orderTotal.toFixed(2)}
+                Order Total: ${calculatedOrderTotal.toFixed(2)}
               </div>
               <Button
                 onClick={handleSubmitOrder}

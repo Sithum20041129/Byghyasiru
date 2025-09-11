@@ -322,7 +322,9 @@ const OrderPage = () => {
                                 updateMeal(index, {
                                   nonVegCurries: [
                                     ...meal.nonVegCurries,
-                                    { id: curry.id, pieces: 1, extraPieces: 0 },
+                                    curry.divisible 
+                                      ? { id: curry.id, pieces: 1 }
+                                      : { id: curry.id },
                                   ],
                                 });
                               } else {
@@ -353,30 +355,6 @@ const OrderPage = () => {
                               }}
                               className="border rounded w-16 px-1"
                             />
-                          )}
-                          {existing && !curry.divisible && (
-                            <div className="flex items-center gap-1">
-                              <span>+ Extra Pieces:</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={existing.extraPieces || 0}
-                                onChange={(e) => {
-                                  const updated = meal.nonVegCurries.map((nv) =>
-                                    nv.id === curry.id
-                                      ? {
-                                          ...nv,
-                                          extraPieces: parseInt(
-                                            e.target.value || 0
-                                          ),
-                                        }
-                                      : nv
-                                  );
-                                  updateMeal(index, { nonVegCurries: updated });
-                                }}
-                                className="border rounded w-16 px-1"
-                              />
-                            </div>
                           )}
                         </div>
                       );

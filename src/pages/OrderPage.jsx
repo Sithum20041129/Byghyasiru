@@ -172,7 +172,7 @@ const OrderPage = () => {
   }
 
   /** 🔹 Config values */
-  const mainMeals = merchantConfig.mains || [];
+  const mainMeals = merchantConfig.mainMeals || merchantConfig.mains || [];
   const portions = merchantConfig.portions || [];
   const vegCurries = merchantConfig.curries?.filter((c) => c.type === "veg") || [];
   const nonVegCurries =

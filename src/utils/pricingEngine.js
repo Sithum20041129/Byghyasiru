@@ -53,10 +53,14 @@ const pickBaseNonVeg = (nonVegCurries, storeSettings, portionId) => {
     baseCurry = divisible.reduce((max, current) => 
       current.price > max.price ? current : max
     );
+    // For divisible curries, always charge the base portion price for the first serving
+    // Only charge extra for pieces beyond the first serving
     const pieces = baseCurry.pieces || 1;
-    const includedPieces = baseCurry.curry.includedPieces ?? 1;
-    const chargeablePieces = Math.max(0, pieces - includedPieces);
-    basePrice = baseCurry.price * chargeablePieces; // Only charge for pieces beyond included
+    const extraPieces = Math.max(0, pieces - 1); // Extra pieces beyond the first
+    basePrice = baseCurry.price; // Base price for first serving
+    if (extraPieces > 0) {
+      basePrice += baseCurry.price * extraPieces; // Add cost for extra pieces
+    }
     otherNonVeg = curriesWithData.filter(nv => nv.id !== baseCurry.id);
   }
 

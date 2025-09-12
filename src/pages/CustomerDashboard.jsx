@@ -7,7 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Store, Clock, MapPin, LogOut, ShoppingBag, Star, User, Heart, Settings, Bell, XCircle, Receipt, CheckCheck, Sun, Moon, Coffee } from 'lucide-react';
+import { 
+  Store, Clock, MapPin, LogOut, ShoppingBag, Star, User, Heart, Settings, Bell, 
+  XCircle, Receipt, CheckCheck, Sun, Moon, Coffee, Home, Package, MessageSquare,
+  TrendingUp, ChevronRight
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,12 +23,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AccountSettingsTab from '@/components/customer/AccountSettingsTab';
 
 const CustomerDashboard = () => {
   const [stores, setStores] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -49,8 +52,8 @@ const CustomerDashboard = () => {
         orderLimit: settings.orderLimit || null,
         closingTime: settings.closingTime || null,
         universities: settings.universities || [],
-        activeMealTime: settings.activeMealTime || 'Lunch', // New property
-        rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1), // Fake rating
+        activeMealTime: settings.activeMealTime || 'Lunch',
+        rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1),
       };
     });
 
@@ -107,26 +110,28 @@ const CustomerDashboard = () => {
   };
 
   const getStoreStatus = (store) => {
-    if (!store.isOpen) return { status: 'Closed', color: 'destructive' };
-    if (!store.acceptingOrders) return { status: 'Busy', color: 'secondary' };
-    return { status: 'Open', color: 'default' };
+    if (!store.isOpen) return { status: 'Closed', color: 'bg-red-100 text-red-800' };
+    if (!store.acceptingOrders) return { status: 'Busy', color: 'bg-yellow-100 text-yellow-800' };
+    return { status: 'Open', color: 'bg-green-100 text-green-800' };
   };
   
   const getOrderStatus = (status) => {
     const statusMap = {
-      pending: { label: 'Not Prepared', color: 'secondary', textColor: 'text-gray-800' },
-      preparing: { label: 'Prepared', color: 'default', textColor: 'text-blue-800', bgColor: 'bg-blue-100' },
-      ready: { label: 'Ready for Pickup', color: 'default', textColor: 'text-green-800', bgColor: 'bg-green-100' },
-      completed: { label: 'Completed', color: 'default', textColor: 'text-purple-800', bgColor: 'bg-purple-100' },
-      canceled: { label: 'Canceled', color: 'destructive', textColor: 'text-red-800', bgColor: 'bg-red-100' },
-      collected: { label: 'Collected', color: 'success', textColor: 'text-green-800', bgColor: 'bg-green-100' }
+      pending: { label: 'Pending', color: 'bg-gray-100 text-gray-800', icon: Clock },
+      preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-800', icon: Package },
+      ready: { label: 'Ready for Pickup', color: 'bg-green-100 text-green-800', icon: CheckCheck },
+      completed: { label: 'Completed', color: 'bg-purple-100 text-purple-800', icon: CheckCheck },
+      canceled: { label: 'Canceled', color: 'bg-red-100 text-red-800', icon: XCircle },
+      collected: { label: 'Collected', color: 'bg-green-100 text-green-800', icon: CheckCheck }
     };
-    const details = statusMap[status] || { label: status, color: 'secondary' };
+    const details = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800', icon: Clock };
+    const IconComponent = details.icon;
     
     return (
-      <Badge variant={details.color} className={`${details.bgColor} ${details.textColor} border-none`}>
+      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${details.color}`}>
+        <IconComponent className="w-4 h-4 mr-1" />
         {details.label}
-      </Badge>
+      </div>
     );
   };
   
@@ -139,218 +144,362 @@ const CustomerDashboard = () => {
 
   const MealTimeIcon = ({ time }) => {
     switch (time) {
-      case 'Breakfast': return <Coffee className="w-4 h-4 mr-2" />;
-      case 'Lunch': return <Sun className="w-4 h-4 mr-2" />;
-      case 'Dinner': return <Moon className="w-4 h-4 mr-2" />;
+      case 'Breakfast': return <Coffee className="w-4 h-4 mr-2 text-amber-600" />;
+      case 'Lunch': return <Sun className="w-4 h-4 mr-2 text-orange-600" />;
+      case 'Dinner': return <Moon className="w-4 h-4 mr-2 text-indigo-600" />;
       default: return null;
     }
   };
 
+  const sidebarItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
+    { id: 'favorites', label: 'Favorites', icon: Heart, active: false },
+    { id: 'notifications', label: 'Notifications', icon: Bell, active: false },
+    { id: 'orders', label: 'My Orders', icon: Package, active: false },
+    { id: 'account', label: 'Account', icon: Settings, active: activeTab === 'account' },
+  ];
+
+  const AccountSettings = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Account Information</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Name</label>
+            <p className="text-gray-900 font-medium">{user?.name}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <p className="text-gray-900">{user?.email}</p>
+          </div>
+          {user?.university && (
+            <div>
+              <label className="text-sm font-medium text-gray-700">University</label>
+              <p className="text-gray-900">{user.university}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-inter">
       <Helmet>
-        <title>Customer Dashboard - QuickMeal</title>
+        <title>Dashboard - QuickMeal</title>
         <meta name="description" content="Browse restaurants, place orders, and track your meal preparations." />
-        <meta property="og:title" content="Customer Dashboard - QuickMeal" />
-        <meta property="og:description" content="Browse restaurants, place orders, and track your meal preparations." />
       </Helmet>
 
-      <div className="max-w-screen-xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
-            <h1 className="text-4xl font-bold gradient-text">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {user?.name}! Let's get you something delicious.</p>
-          </motion.div>
-          <Button onClick={handleLogout} variant="outline">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </header>
-        
-        <Tabs defaultValue="dashboard">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="settings">Account Settings</TabsTrigger>
-          </TabsList>
+      <div className="flex">
+        {/* Modern Sidebar */}
+        <motion.aside 
+          initial={{ x: -100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen fixed left-0 top-0 z-10"
+        >
+          <div className="p-6">
+            <div className="flex items-center mb-8">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-gray-900 ml-3">QuickMeal</h1>
+            </div>
+            
+            <nav className="space-y-2">
+              {sidebarItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'dashboard' || item.id === 'account') {
+                      setActiveTab(item.id);
+                    } else {
+                      handleFeatureClick();
+                    }
+                  }}
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
+                    item.active
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 mr-3 ${item.active ? 'text-white' : 'text-gray-500'}`} />
+                  <span className="font-medium">{item.label}</span>
+                  {item.active && <ChevronRight className="w-4 h-4 ml-auto" />}
+                </button>
+              ))}
+            </nav>
+          </div>
+          
+          <div className="absolute bottom-0 left-0 right-0 p-6">
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              className="w-full border-gray-200 hover:bg-gray-50"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </motion.aside>
 
-          <TabsContent value="dashboard">
-            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              <aside className="lg:col-span-1 xl:col-span-1 space-y-8">
-                <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
-                  <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <div className="bg-gradient-to-br from-orange-400 to-red-500 p-6 flex flex-col items-center text-white">
-                      <div className="relative p-1 bg-white/30 rounded-full mb-3">
-                        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center">
-                          <User className="w-12 h-12 text-orange-500" />
+        {/* Main Content */}
+        <main className="flex-1 ml-64 p-8">
+          {activeTab === 'dashboard' && (
+            <>
+              {/* Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="mb-8"
+              >
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Welcome back, {user?.name}! 👋
+                </h1>
+                <p className="text-gray-600">Discover delicious meals from your favorite restaurants</p>
+              </motion.div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Profile Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                  className="lg:col-span-1"
+                >
+                  <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <CardContent className="p-6 text-center">
+                      <div className="relative mb-4">
+                        <div className="w-20 h-20 mx-auto bg-white/20 rounded-full p-1">
+                          <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                            <User className="w-10 h-10 text-orange-500" />
+                          </div>
                         </div>
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
                       </div>
-                      <h3 className="text-xl font-bold">{user?.name}</h3>
-                      <p className="text-sm opacity-80">{user?.email}</p>
-                      {user?.university && <Badge variant="secondary" className="mt-2">{user.university}</Badge>}
-                    </div>
-                    <CardContent className="p-4 space-y-2">
-                      <Button onClick={handleFeatureClick} variant="ghost" className="w-full justify-start"><Heart className="w-4 h-4 mr-3" /> Favorites</Button>
-                      <Button onClick={handleFeatureClick} variant="ghost" className="w-full justify-start"><Bell className="w-4 h-4 mr-3" /> Notifications</Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-                
-                <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
-                  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader>
-                      <CardTitle className="text-xl">Your Recent Orders</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {orders.length > 0 ? (
-                        <div className="space-y-4">
-                          {orders.slice(0, 5).map(order => (
-                            <div key={order.id} className="flex items-start space-x-3">
-                              <div className="p-2 rounded-full bg-orange-100 mt-1">
-                                <ShoppingBag className="w-5 h-5 text-orange-600"/>
-                              </div>
-                              <div className="flex-grow">
-                                <p className="font-semibold text-sm">{order.storeName}</p>
-                                <p className="text-xs text-gray-500">#{order.orderNumber} - ${order.total.toFixed(2)}</p>
-                                <div className="mt-2 flex justify-between items-center">
-                                  {getOrderStatus(order.status)}
-                                  <div className="flex items-center gap-2">
-                                    {order.status === 'pending' && (
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="h-auto p-1 text-red-500 hover:bg-red-100 hover:text-red-600">
-                                            <XCircle className="w-4 h-4" />
-                                          </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                              This action cannot be undone. This will permanently cancel your order.
-                                            </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                            <AlertDialogCancel>Back</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleCancelOrder(order.id)} className="bg-red-500 hover:bg-red-600">
-                                              Yes, Cancel Order
-                                            </AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    )}
-                                    {order.status === 'completed' && (
-                                      <Button onClick={() => handleMarkAsDone(order.id)} variant="ghost" size="sm" className="h-auto p-1 text-green-500 hover:bg-green-100 hover:text-green-600">
-                                        <CheckCheck className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                    <Link to={`/receipt/${order.id}`}>
-                                      <Button variant="outline" size="sm" className="h-auto p-1 text-orange-600 border-orange-200 hover:bg-orange-50">
-                                        <Receipt className="w-4 h-4" />
-                                      </Button>
-                                    </Link>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 text-center py-4">No recent orders.</p>
+                      <h3 className="text-xl font-bold mb-1">{user?.name}</h3>
+                      <p className="text-white/80 text-sm mb-3">{user?.email}</p>
+                      {user?.university && (
+                        <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                          {user.university}
+                        </Badge>
                       )}
                     </CardContent>
                   </Card>
-                </motion.div>
-              </aside>
 
-              <main className="lg:col-span-2 xl:col-span-3">
-                <motion.section initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-                  <h2 className="text-2xl font-bold mb-6 text-gray-800">Available Restaurants {user?.university && `at ${user.university}`}</h2>
-                  
-                  {stores.length === 0 ? (
-                    <Card className="store-card text-center py-12 bg-gray-50">
-                      <CardContent>
-                        <Store className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                        <h3 className="text-xl font-semibold mb-2 text-gray-600">No Restaurants Available</h3>
-                        <p className="text-gray-500">Check back later or change your university in settings.</p>
+                  {/* Recent Orders */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="mt-6"
+                  >
+                    <Card className="bg-white shadow-xl border-0 hover:shadow-2xl transition-all duration-300">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
+                          <TrendingUp className="w-5 h-5 mr-2 text-orange-500" />
+                          Recent Orders
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {orders.length > 0 ? (
+                          <div className="space-y-4">
+                            {orders.slice(0, 3).map((order, index) => (
+                              <motion.div
+                                key={order.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className="relative pl-6 pb-4 border-l-2 border-gray-200 last:border-l-0 last:pb-0"
+                              >
+                                <div className="absolute -left-2 top-0 w-4 h-4 bg-orange-500 rounded-full border-2 border-white shadow-sm"></div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-medium text-gray-900 text-sm">{order.storeName}</h4>
+                                    <span className="text-xs font-semibold text-gray-700">${order.total.toFixed(2)}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-500">#{order.orderNumber}</p>
+                                  <div className="flex items-center justify-between">
+                                    {getOrderStatus(order.status)}
+                                    <div className="flex gap-1">
+                                      {order.status === 'pending' && (
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:bg-red-50">
+                                              <XCircle className="w-4 h-4" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Cancel Order?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                This action cannot be undone. Your order will be permanently canceled.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Back</AlertDialogCancel>
+                                              <AlertDialogAction 
+                                                onClick={() => handleCancelOrder(order.id)}
+                                                className="bg-red-500 hover:bg-red-600"
+                                              >
+                                                Yes, Cancel
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      )}
+                                      <Link to={`/receipt/${order.id}`}>
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-orange-500 hover:bg-orange-50">
+                                          <Receipt className="w-4 h-4" />
+                                        </Button>
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">No recent orders</p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
-                  ) : (
-                    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {stores.map((store, index) => {
-                        const storeStatus = getStoreStatus(store);
-                        return (
-                          <motion.div
-                            key={store.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 }}
-                            whileHover={{ y: -5 }}
-                          >
-                            <Card className="store-card h-full flex flex-col overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
-                              <div className="relative">
-                                <img  class="h-40 w-full object-cover" alt={`A vibrant display of food from ${store.storeName}`} src="https://images.unsplash.com/photo-1597236654171-3085a99f453f" />
-                                <div className="absolute top-2 right-2">
-                                  <Badge variant={storeStatus.color} className="shadow-md">
-                                    {storeStatus.status}
-                                  </Badge>
-                                </div>
-                                <div className="absolute bottom-2 left-2 bg-black/50 text-white p-1 px-2 rounded-full flex items-center text-xs">
-                                  <Star className="w-3 h-3 mr-1 fill-yellow-400 text-yellow-400" /> {store.rating}
-                                </div>
-                              </div>
-                              <CardHeader>
-                                <CardTitle className="text-xl font-bold text-gray-800 truncate">
-                                  {store.storeName}
-                                </CardTitle>
-                                <CardDescription className="flex items-center text-gray-500 text-sm">
-                                  <MapPin className="w-4 h-4 mr-1 shrink-0" />
-                                  {store.storeAddress}
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent className="flex-grow space-y-3">
-                                {store.activeMealTime && (
-                                  <div className="flex items-center text-sm text-blue-600 font-semibold bg-blue-50 p-2 rounded-md">
-                                    <MealTimeIcon time={store.activeMealTime} />
-                                    <span>Accepting Orders for <strong>{store.activeMealTime}</strong></span>
+                  </motion.div>
+                </motion.div>
+
+                {/* Restaurants Section */}
+                <div className="lg:col-span-3">
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                  >
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        Available Restaurants
+                        {user?.university && (
+                          <span className="text-lg font-normal text-gray-600 ml-2">at {user.university}</span>
+                        )}
+                      </h2>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        {stores.filter(s => s.isOpen && s.acceptingOrders).length} open now
+                      </div>
+                    </div>
+
+                    {stores.length === 0 ? (
+                      <Card className="bg-white shadow-xl border-0 text-center py-16">
+                        <CardContent>
+                          <Store className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                          <h3 className="text-xl font-semibold mb-2 text-gray-600">No Restaurants Available</h3>
+                          <p className="text-gray-500">Check back later or update your university in settings.</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {stores.map((store, index) => {
+                          const storeStatus = getStoreStatus(store);
+                          return (
+                            <motion.div
+                              key={store.id}
+                              initial={{ opacity: 0, y: 30 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.5, delay: index * 0.1 }}
+                              whileHover={{ y: -8, scale: 1.02 }}
+                              className="group"
+                            >
+                              <Card className="bg-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden h-full">
+                                <div className="relative">
+                                  <div className="h-48 bg-gradient-to-br from-orange-200 to-red-200 relative overflow-hidden">
+                                    <img 
+                                      src="https://images.unsplash.com/photo-1597236654171-3085a99f453f" 
+                                      alt={`Food from ${store.storeName}`}
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                                   </div>
-                                )}
-                                {store.closingTime && (
-                                    <div className="flex items-center text-sm text-gray-600">
-                                      <Clock className="w-4 h-4 mr-2" />
-                                      <span>Closes at <strong>{store.closingTime}</strong></span>
+                                  
+                                  <div className="absolute top-4 right-4">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium shadow-lg ${storeStatus.color}`}>
+                                      {storeStatus.status}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="absolute bottom-4 left-4 flex items-center bg-black/60 text-white px-3 py-1 rounded-full">
+                                    <Star className="w-4 h-4 mr-1 fill-yellow-400 text-yellow-400" />
+                                    <span className="text-sm font-medium">{store.rating}</span>
+                                  </div>
+                                </div>
+
+                                <CardContent className="p-6 space-y-4">
+                                  <div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
+                                      {store.storeName}
+                                    </h3>
+                                    <div className="flex items-center text-gray-500 text-sm">
+                                      <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                                      <span className="truncate">{store.storeAddress}</span>
+                                    </div>
+                                  </div>
+
+                                  {store.activeMealTime && (
+                                    <div className="flex items-center bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl">
+                                      <MealTimeIcon time={store.activeMealTime} />
+                                      <span className="text-sm font-medium text-gray-700">
+                                        Accepting <span className="font-semibold">{store.activeMealTime}</span> orders
+                                      </span>
                                     </div>
                                   )}
-                              </CardContent>
-                              <CardFooter className="p-4 bg-gray-50/50">
-                                {store.isOpen && store.acceptingOrders ? (
+
+                                  {store.closingTime && (
+                                    <div className="flex items-center text-sm text-gray-600">
+                                      <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                                      <span>Closes at <span className="font-semibold">{store.closingTime}</span></span>
+                                    </div>
+                                  )}
+                                </CardContent>
+
+                                <CardFooter className="p-6 pt-0">
+                                  {store.isOpen && store.acceptingOrders ? (
                                     <Link to={`/order/${store.id}`} className="w-full">
-                                      <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all">
-                                        <ShoppingBag className="w-4 h-4 mr-2" />
-                                        Order Now
+                                      <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 rounded-xl py-6">
+                                        <ShoppingBag className="w-5 h-5 mr-2" />
+                                        <span className="font-semibold">Order Now</span>
                                       </Button>
                                     </Link>
                                   ) : (
-                                    <Button disabled className="w-full">
+                                    <Button disabled className="w-full rounded-xl py-6 bg-gray-100 text-gray-500">
                                       {!store.isOpen ? 'Currently Closed' : 'Not Accepting Orders'}
                                     </Button>
                                   )}
-                              </CardFooter>
-                            </Card>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </motion.section>
-              </main>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="settings">
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <AccountSettingsTab />
+                                </CardFooter>
+                              </Card>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'account' && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h1>
+              <AccountSettings />
             </motion.div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </main>
       </div>
     </div>
   );

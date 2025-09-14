@@ -1,6 +1,6 @@
 import { users, sessions, type User, type InsertUser, type Session, type InsertSession } from "../shared/schema";
 import { db } from "./db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, lt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -69,7 +69,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await db.delete(sessions).where(gt(sessions.expiresAt, new Date()));
+    await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
   }
 }
 

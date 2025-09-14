@@ -163,7 +163,7 @@ const LoginPage = () => {
                   <Checkbox
                     id="rememberMe"
                     checked={formData.rememberMe}
-                    onChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked }))}
+                    onChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked === true }))}
                   />
                   <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
                     Remember me for 30 days

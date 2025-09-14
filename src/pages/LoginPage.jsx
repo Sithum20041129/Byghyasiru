@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -23,7 +24,8 @@ const GoogleIcon = (props) => (
 const LoginPage = () => {
   const [formData, setFormData] = useState({
     emailOrUsername: '',
-    password: ''
+    password: '',
+    rememberMe: false
   });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -155,6 +157,17 @@ const LoginPage = () => {
                     required
                     className="border-orange-200 focus:border-orange-400"
                   />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    checked={formData.rememberMe}
+                    onChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked }))}
+                  />
+                  <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+                    Remember me for 30 days
+                  </Label>
                 </div>
 
                 <Button

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
+const API_BASE_URL = '/api';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -10,64 +11,95 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to make API calls
+const apiCall = async (endpoint, options = {}) => {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    credentials: 'include', // Include cookies
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Network error' }));
+    throw new Error(error.error || 'Something went wrong');
+  }
+
+  return response.json();
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Check if user is authenticated on app load
   useEffect(() => {
-    const savedUser = localStorage.getItem('quickmeal_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    checkAuth();
   }, []);
 
-  const login = (userData) => {
-    const users = JSON.parse(localStorage.getItem('quickmeal_users') || '[]');
-    const userToLogin = users.find(u => 
-      (u.email === userData.emailOrUsername || u.username === userData.emailOrUsername) 
-      && u.password === userData.password
-    );
-
-    if (userToLogin) {
-      setUser(userToLogin);
-      localStorage.setItem('quickmeal_user', JSON.stringify(userToLogin));
+  const checkAuth = async () => {
+    try {
+      const response = await apiCall('/auth/me');
+      setUser(response.user);
+    } catch (error) {
+      // No valid session, user stays null
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    return userToLogin;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('quickmeal_user');
-  };
-
-  const register = (userData) => {
-    const users = JSON.parse(localStorage.getItem('quickmeal_users') || '[]');
-    const newUser = {
-      ...userData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      approved: userData.role === 'customer' ? true : false
-    };
-    users.push(newUser);
-    localStorage.setItem('quickmeal_users', JSON.stringify(users));
-    
-    if (userData.role === 'customer') {
-      setUser(newUser);
-      localStorage.setItem('quickmeal_user', JSON.stringify(newUser));
+  const login = async (userData) => {
+    try {
+      const response = await apiCall('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      setUser(response.user);
+      return response.user;
+    } catch (error) {
+      throw error;
     }
-    
-    return newUser;
   };
 
-  const updateUser = (updatedUserData) => {
-    const users = JSON.parse(localStorage.getItem('quickmeal_users') || '[]');
-    const updatedUsers = users.map(u => u.id === updatedUserData.id ? updatedUserData : u);
-    localStorage.setItem('quickmeal_users', JSON.stringify(updatedUsers));
-    
+  const logout = async () => {
+    try {
+      await apiCall('/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      // Even if logout fails, clear local state
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+    }
+  };
+
+  const register = async (userData) => {
+    try {
+      const response = await apiCall('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      
+      // If it's a customer, they're auto-logged in
+      if (userData.role === 'customer' && response.user) {
+        setUser(response.user);
+      }
+      
+      return response.user;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const updateUser = async (updatedUserData) => {
+    // For now, just update local state
+    // In a real app, this would make an API call to update user data
     if (user && user.id === updatedUserData.id) {
       setUser(updatedUserData);
-      localStorage.setItem('quickmeal_user', JSON.stringify(updatedUserData));
     }
   };
 

@@ -69,7 +69,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await db.delete(sessions).where(gt(new Date(), sessions.expiresAt));
+    await db.delete(sessions).where(gt(sessions.expiresAt, new Date()));
   }
 }
 

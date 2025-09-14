@@ -8,7 +8,7 @@ import { storage } from './storage';
 import { InsertUser, InsertSession } from '../shared/schema';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // JWT secret - in production, this should be a secure random string
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';

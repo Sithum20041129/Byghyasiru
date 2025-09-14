@@ -44,7 +44,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const user = login(formData);
+      const user = await login(formData);
 
       if (!user) {
         toast({

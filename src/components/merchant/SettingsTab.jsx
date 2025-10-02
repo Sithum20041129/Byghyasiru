@@ -94,6 +94,23 @@ const SettingsTab = ({ settings, setStoreSettings, onSave }) => {
                 Display closing time to customers
               </p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="websiteCharge">Website Charge (%)</Label>
+              <Input
+                id="websiteCharge"
+                type="number"
+                step="0.01"
+                placeholder="Enter charge percentage"
+                value={settings.websiteCharge || ''}
+                onChange={(e) =>
+                  handleSettingChange('websiteCharge', e.target.value ? parseFloat(e.target.value) : 0)
+                }
+              />
+              <p className="text-sm text-gray-600">
+                Percentage charge applied for online orders.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -111,9 +128,29 @@ const SettingsTab = ({ settings, setStoreSettings, onSave }) => {
           </p>
         </div>
 
-        <Button onClick={onSave} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
+        <Button
+          onClick={async () => {
+            try {
+              const response = await fetch('/api/merchant/settings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings),
+              });
+              const result = await response.json();
+              if (result.success) {
+                alert('Settings saved successfully!');
+              } else {
+                alert(result.error || 'Error saving settings');
+              }
+            } catch (err) {
+              alert('Network error');
+            }
+          }}
+          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+        >
           Save Settings
         </Button>
+
       </CardContent>
     </Card>
   );

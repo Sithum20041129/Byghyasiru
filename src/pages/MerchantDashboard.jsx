@@ -9,70 +9,90 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "@/components/merchant/DashboardHeader";
 import StatsCards from "@/components/merchant/StatsCards";
 import OrdersTab from "@/components/merchant/OrdersTab";
-import MenuPricing from "./Merchant/MenuPricing";
 import StoreSettings from "./Merchant/StoreSettings";
 import { v4 as uuidv4 } from "uuid";
 
+// ✅ New: Add Food Form
+const AddFoodForm = () => {
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch("/api/merchant/add_food.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description: desc, price, category }),
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      setMessage("✅ Food added successfully!");
+      setName("");
+      setDesc("");
+      setPrice("");
+      setCategory("");
+    } else {
+      setMessage("❌ Error: " + (data.error || "Failed to add food"));
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="p-4 space-y-3 bg-white rounded-xl shadow-md"
+    >
+      <input
+        className="w-full border p-2 rounded"
+        placeholder="Food name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <textarea
+        className="w-full border p-2 rounded"
+        placeholder="Description"
+        value={desc}
+        onChange={(e) => setDesc(e.target.value)}
+      />
+      <input
+        className="w-full border p-2 rounded"
+        placeholder="Price"
+        type="number"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+      />
+      <input
+        className="w-full border p-2 rounded"
+        placeholder="Category"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+      />
+      <button
+        type="submit"
+        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-2 rounded"
+      >
+        Add Food
+      </button>
+      {message && <p className="text-sm mt-2">{message}</p>}
+    </form>
+  );
+};
+
 const MerchantDashboard = () => {
   const [orders, setOrders] = useState([]);
-  const [storeSettings, setStoreSettings] = useState({
-    isOpen: true,
-    acceptingOrders: true,
-    orderLimit: null,
-    closingTime: "",
-    universities: [],
-    activeMealTime: "Lunch",
-    defaultVegCurries: 2,
-    vegCurryPrice: 50,
-    portionCategories: [
-      { id: "small", name: "Small", divisions: 1 },
-      { id: "half", name: "Half", divisions: 2 },
-      { id: "full", name: "Full", divisions: 3 }
-    ],
-    mainMeals: [
-      {
-        id: uuidv4(),
-        name: "Rice & Curry",
-        portionPrices: { small: 200, half: 250, full: 300 }
-      }
-    ],
-    curries: [
-      {
-        id: uuidv4(),
-        name: "Dhal Curry",
-        type: "veg",
-        price: 30
-      },
-      {
-        id: uuidv4(),
-        name: "Chicken Curry",
-        type: "non-veg",
-        divisible: true,
-        portionPrices: { small: 120, half: 160, full: 200 },
-        extraPiecePrice: 40
-      }
-    ]
-  });
-
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Load orders
+  // Load orders from localStorage (temporary)
   const loadOrders = useCallback(() => {
     if (!user) return;
     const allOrders = JSON.parse(localStorage.getItem("quickmeal_orders") || "[]");
     const storeOrders = allOrders.filter((order) => order.storeId === user.id);
     setOrders(storeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-  }, [user]);
-
-  // Load store settings
-  const loadStoreSettings = useCallback(() => {
-    if (!user) return;
-    const settings = JSON.parse(localStorage.getItem("quickmeal_store_settings") || "{}");
-    if (settings[user.id]) {
-      setStoreSettings((prev) => ({ ...prev, ...settings[user.id] }));
-    }
   }, [user]);
 
   useEffect(() => {
@@ -81,18 +101,9 @@ const MerchantDashboard = () => {
       return;
     }
     loadOrders();
-    loadStoreSettings();
     const interval = setInterval(loadOrders, 5000);
     return () => clearInterval(interval);
-  }, [user, navigate, loadOrders, loadStoreSettings]);
-
-  // Save settings
-  const saveStoreSettings = () => {
-    const allSettings = JSON.parse(localStorage.getItem("quickmeal_store_settings") || "{}");
-    allSettings[user.id] = storeSettings;
-    localStorage.setItem("quickmeal_store_settings", JSON.stringify(allSettings));
-    toast({ title: "Settings Updated", description: "Your store settings have been saved successfully" });
-  };
+  }, [user, navigate, loadOrders]);
 
   // Update order status
   const updateOrderStatus = (orderId, newStatus) => {
@@ -168,19 +179,12 @@ const MerchantDashboard = () => {
             </TabsContent>
 
             <TabsContent value="menu">
-              <MenuPricing
-                storeSettings={storeSettings}
-                setStoreSettings={setStoreSettings}
-                onSave={saveStoreSettings}
-              />
+              {/* ✅ Add Food Form */}
+              <AddFoodForm />
             </TabsContent>
 
             <TabsContent value="settings">
-              <StoreSettings
-                settings={storeSettings}
-                setSettings={setStoreSettings}
-                onSave={saveStoreSettings}
-              />
+              <StoreSettings />
             </TabsContent>
           </Tabs>
         </motion.div>

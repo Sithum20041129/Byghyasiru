@@ -26,7 +26,7 @@ const OrderPage = () => {
       const res = await fetch(`/api/store/get.php?id=${encodeURIComponent(storeId)}`);
       const data = await res.json();
 
-      console.log("API response:", data); // 👀 Debug log
+      console.log("API response:", data);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || `Failed with status ${res.status}`);
@@ -36,7 +36,6 @@ const OrderPage = () => {
       setSettings(data.settings || {});
       setFoods(data.foods || []);
 
-      // ✅ Only redirect if settings exist and are explicitly false
       if (data.settings && (!data.settings.isOpen || !data.settings.acceptingOrders)) {
         toast({
           title: "Store Unavailable",
@@ -122,10 +121,12 @@ const OrderPage = () => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          customerId: user.id,
-          storeId: store.id,
-          items: selectedItems,
-          total,
+          merchant_id: store.id,
+          items: selectedItems.map((it) => ({
+            food_id: it.food_id,
+            quantity: it.qty,
+            price: it.price,
+          })),
         }),
       });
 
@@ -136,10 +137,10 @@ const OrderPage = () => {
 
       toast({
         title: "Order Placed!",
-        description: `Your order #${json.orderNumber} was successful`,
+        description: `Your order #${json.order_number} was successful`,
       });
 
-      navigate(`/receipt/${json.orderId}`);
+      navigate(`/receipt/${json.order_id}`);
     } catch (err) {
       console.error("Order error:", err);
       toast({
@@ -197,6 +198,7 @@ const OrderPage = () => {
                 <div className="space-y-3">
                   {foods.map((f) => {
                     const qty = cart[f.id] || 0;
+                    const price = parseFloat(f.price) || 0;
                     return (
                       <div
                         key={f.id}
@@ -210,7 +212,7 @@ const OrderPage = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-sm text-gray-700 mr-3">
-                            Rs {parseFloat(f.price).toFixed(2)}
+                            Rs {price.toFixed(2)}
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -264,7 +266,7 @@ const OrderPage = () => {
                   ))}
                   <div className="border-t mt-2 pt-2 flex justify-between font-bold">
                     <div>Total</div>
-                    <div>Rs {total.toFixed(2)}</div>
+                    <div>Rs {((total) || 0).toFixed(2)}</div>
                   </div>
                 </div>
               )}

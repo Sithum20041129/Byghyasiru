@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Helmet } from "react-helmet";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner"; // ✅ use sonner
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MerchantConfigProvider } from "@/store/merchantConfig"; // ✅ import provider
 
@@ -51,7 +51,7 @@ const AppRoutes = () => {
 function App() {
   return (
     <AuthProvider>
-      <MerchantConfigProvider> {/* ✅ now context is available */}
+      <MerchantConfigProvider>
         <Router>
           <Helmet>
             <title>QuickMeal - Pre-Order Your Meals</title>
@@ -71,7 +71,8 @@ function App() {
 
           <AppRoutes />
 
-          <Toaster />
+          {/* ✅ Sonner toaster (global popup support) */}
+          <Toaster richColors position="top-center" />
         </Router>
       </MerchantConfigProvider>
     </AuthProvider>

@@ -9,7 +9,9 @@ const StatCard = ({ title, value, icon: Icon, colorClass, iconColorClass }) => (
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600">{title}</p>
-          <p className={`text-3xl font-bold ${colorClass}`}>{value}</p>
+          <p className={`text-3xl font-bold ${colorClass}`}>
+            {Number(value || 0).toFixed(0)} {/* ✅ convert safely */}
+          </p>
         </div>
         <Icon className={`w-8 h-8 ${iconColorClass}`} />
       </div>

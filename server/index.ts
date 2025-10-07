@@ -6,23 +6,22 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { storage } from './storage';
 import { InsertUser, InsertSession } from '../shared/schema';
+import menuRoutes from './routes/menuRoutes'; // ✅ new import (make sure this file exists)
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
-
-// JWT secret - in production, this should be a secure random string
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: true, // Allow all origins in development
-  credentials: true // Allow cookies
+  origin: true,
+  credentials: true
 }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Authentication middleware
+// 🔹 Authentication middleware
 const authenticateToken = async (req: any, res: any, next: any) => {
   const token = req.cookies.sessionToken;
 
@@ -32,7 +31,6 @@ const authenticateToken = async (req: any, res: any, next: any) => {
 
   try {
     const sessionData = await storage.getSessionByToken(token);
-    
     if (!sessionData) {
       res.clearCookie('sessionToken');
       return res.status(401).json({ error: 'Invalid or expired session' });
@@ -47,47 +45,32 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 };
 
-// Helper function to create session
+// 🔹 Helper function to create a new session
 const createSession = async (userId: number, rememberMe: boolean = false) => {
   const expiresAt = new Date();
-  if (rememberMe) {
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
-  } else {
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
-  }
+  if (rememberMe) expiresAt.setDate(expiresAt.getDate() + 30);
+  else expiresAt.setHours(expiresAt.getHours() + 24);
 
-  const sessionData: InsertSession = {
-    userId,
-    expiresAt,
-    rememberMe
-  };
-
+  const sessionData: InsertSession = { userId, expiresAt, rememberMe };
   return await storage.createSession(sessionData);
 };
 
-// Routes
-
-// Register endpoint
+// 🔹 Auth Routes
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password, role = 'customer' } = req.body;
 
-    // Check if user already exists
     const existingUserByEmail = await storage.getUserByEmail(email);
     const existingUserByUsername = await storage.getUserByUsername(username);
 
     if (existingUserByEmail) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
-
     if (existingUserByUsername) {
       return res.status(400).json({ error: 'Username already taken' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create user
     const userData: InsertUser = {
       username,
       email,
@@ -98,19 +81,16 @@ app.post('/api/auth/register', async (req, res) => {
 
     const user = await storage.createUser(userData);
 
-    // Auto-login customers
     if (role === 'customer') {
       const session = await createSession(user.id);
-      
       res.cookie('sessionToken', session.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000
       });
     }
 
-    // Don't send password in response
     const { password: _, ...userResponse } = user;
     res.status(201).json({ user: userResponse });
   } catch (error) {
@@ -119,46 +99,28 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login endpoint
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { emailOrUsername, password, rememberMe = false } = req.body;
-
-    // Find user by email or username
     let user = await storage.getUserByEmail(emailOrUsername);
-    if (!user) {
-      user = await storage.getUserByUsername(emailOrUsername);
-    }
+    if (!user) user = await storage.getUserByUsername(emailOrUsername);
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    if (!isValidPassword) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Check if merchant is approved
     if (user.role === 'merchant' && !user.approved) {
       return res.status(403).json({ error: 'Account pending approval' });
     }
 
-    // Create session
     const session = await createSession(user.id, rememberMe);
-
-    // Set cookie
-    const cookieOptions = {
+    res.cookie('sessionToken', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
-      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // 30 days or 24 hours
-    };
+      sameSite: 'strict',
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+    });
 
-    res.cookie('sessionToken', session.token, cookieOptions);
-
-    // Don't send password in response
     const { password: _, ...userResponse } = user;
     res.json({ user: userResponse });
   } catch (error) {
@@ -167,13 +129,10 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Logout endpoint
 app.post('/api/auth/logout', authenticateToken, async (req: any, res) => {
   try {
     const token = req.cookies.sessionToken;
-    if (token) {
-      await storage.deleteSession(token);
-    }
+    if (token) await storage.deleteSession(token);
     res.clearCookie('sessionToken');
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
@@ -182,23 +141,25 @@ app.post('/api/auth/logout', authenticateToken, async (req: any, res) => {
   }
 });
 
-// Get current user endpoint
 app.get('/api/auth/me', authenticateToken, (req: any, res) => {
   const { password: _, ...userResponse } = req.user;
   res.json({ user: userResponse });
 });
 
-// Clean up expired sessions (run periodically)
+// 🔹 Mount menu routes
+app.use('/api/menu', menuRoutes); // ✅ this ensures your updated menu routes work
+
+// 🔹 Clean up expired sessions every hour
 setInterval(async () => {
   try {
     await storage.deleteExpiredSessions();
   } catch (error) {
     console.error('Error cleaning up expired sessions:', error);
   }
-}, 60 * 60 * 1000); // Run every hour
+}, 60 * 60 * 1000);
 
 app.listen(PORT, 'localhost', () => {
-  console.log(`Authentication server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
 
 export default app;

@@ -10,11 +10,18 @@ const OrdersTab = ({ pendingOrders, activeOrders, onUpdateStatus }) => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Clock className="w-5 h-5 mr-2 text-orange-500" />
-            Pending Orders ({pendingOrders.length})
+            Pending Orders ({pendingOrders?.length || 0})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-          <OrderList orders={pendingOrders} onUpdateStatus={onUpdateStatus} category="pending" />
+          <OrderList 
+            orders={pendingOrders?.map(order => ({
+              ...order,
+              total: Number(order.total || 0), // ✅ ensure numeric
+            }))} 
+            onUpdateStatus={onUpdateStatus} 
+            category="pending" 
+          />
         </CardContent>
       </Card>
 
@@ -22,11 +29,18 @@ const OrdersTab = ({ pendingOrders, activeOrders, onUpdateStatus }) => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <ShoppingBag className="w-5 h-5 mr-2 text-blue-500" />
-            Active Orders ({activeOrders.length})
+            Active Orders ({activeOrders?.length || 0})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-          <OrderList orders={activeOrders} onUpdateStatus={onUpdateStatus} category="active" />
+          <OrderList 
+            orders={activeOrders?.map(order => ({
+              ...order,
+              total: Number(order.total || 0), // ✅ ensure numeric
+            }))} 
+            onUpdateStatus={onUpdateStatus} 
+            category="active" 
+          />
         </CardContent>
       </Card>
     </div>

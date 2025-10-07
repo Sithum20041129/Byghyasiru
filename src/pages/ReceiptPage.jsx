@@ -5,29 +5,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 
 const ReceiptPage = () => {
-  const { id } = useParams(); // order id from URL
+  const { orderId } = useParams(); // ✅ matches :orderId in App.jsx // order id from URL (/receipt/:id)
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("🟢 ReceiptPage orderId from URL:", orderId);
+    if (!orderId) return; 
+
     const loadOrder = async () => {
       try {
-        const res = await fetch(`/api/orders/get.php?order_id=${id}`);
+        const res = await fetch(`/api/orders/get.php?order_id=${orderId}`);
         const data = await res.json();
-        if (data.success) {
-          setOrder(data.order); // API returns { success, order }
+        console.log("📦 API response:", data);
+
+        if (data.success && data.order) {
+          setOrder(data.order);
         } else {
           setOrder(null);
         }
       } catch (err) {
-        console.error("Error fetching order:", err);
+        console.error("❌ Error fetching order:", err);
       } finally {
         setLoading(false);
       }
     };
-    loadOrder();
-  }, [id]);
+
+  loadOrder();
+}, [orderId]);
+
 
   if (loading) {
     return (
@@ -59,7 +66,7 @@ const ReceiptPage = () => {
         <CardContent className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold">Order Details</h2>
-            <p className="text-gray-600">Order #: {order.order_number}</p>
+            <p className="text-gray-600">Order #: {order.order_number || order.id}</p>
             <p className="text-gray-600">Placed At: {order.created_at}</p>
           </div>
 
@@ -76,22 +83,21 @@ const ReceiptPage = () => {
           <div>
             <h2 className="text-lg font-semibold">Items</h2>
             <ul className="list-disc list-inside text-gray-700">
-              {order.items &&
-                order.items.map((item, idx) => (
-                  <li key={idx}>
-                    {item.food_name} × {item.quantity} — Rs.{item.price}
-                  </li>
-                ))}
+              {(order.items || []).map((item, idx) => (
+                <li key={idx}>
+                  {item.food_name} × {item.quantity} — Rs.{item.price}
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
             <h2 className="text-lg font-semibold">Total</h2>
-            <p className="text-xl font-bold">Rs.{order.total}</p>
+            <p className="text-xl font-bold">Rs.{order.total_price}</p>
           </div>
 
           <div className="flex justify-center">
-            <Link to="/dashboard">
+            <Link to="/customer">
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 Back to Dashboard
               </Button>

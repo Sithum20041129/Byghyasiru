@@ -1,23 +1,16 @@
-import React, { createContext, useState, useContext } from "react";
+// ✅ src/store/merchantConfig.jsx
+import { create } from "zustand";
 
-// ✅ Create context
-const MerchantConfigContext = createContext();
+export const useMerchantConfig = create((set) => ({
+  // 🧾 Menu items (foods)
+  menuItems: [],
+  setMenuItems: (items) => set({ menuItems: items }),
 
-// ✅ Provider component
-export function MerchantConfigProvider({ children }) {
-  const [menuItems, setMenuItems] = useState([]);
+  // 🍱 Portion categories (like small, medium, large)
+  portions: [],
+  setPortions: (items) => set({ portions: items }),
 
-  return (
-    <MerchantConfigContext.Provider value={{ menuItems, setMenuItems }}>
-      {children}
-    </MerchantConfigContext.Provider>
-  );
-}
-
-// ✅ Custom hook for easier use
-export function useMerchantConfig() {
-  return useContext(MerchantConfigContext);
-}
-
-// ✅ Export context (this fixes your build error)
-export { MerchantConfigContext };
+  // 🏪 Optional store-level data (future use)
+  merchantSettings: {},
+  setMerchantSettings: (data) => set({ merchantSettings: data }),
+}));

@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Toaster } from "sonner"; // ✅ use sonner
 import { AuthProvider } from "@/contexts/AuthContext";
-import { MerchantConfigProvider } from "@/store/merchantConfig"; // ✅ import provider
 
 // Pages
 import HomePage from "@/pages/HomePage";
@@ -51,30 +50,28 @@ const AppRoutes = () => {
 function App() {
   return (
     <AuthProvider>
-      <MerchantConfigProvider>
-        <Router>
-          <Helmet>
-            <title>QuickMeal - Pre-Order Your Meals</title>
-            <meta
-              name="description"
-              content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
-            />
-            <meta
-              property="og:title"
-              content="QuickMeal - Pre-Order Your Meals"
-            />
-            <meta
-              property="og:description"
-              content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
-            />
-          </Helmet>
+      <Router>
+        <Helmet>
+          <title>QuickMeal - Pre-Order Your Meals</title>
+          <meta
+            name="description"
+            content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
+          />
+          <meta
+            property="og:title"
+            content="QuickMeal - Pre-Order Your Meals"
+          />
+          <meta
+            property="og:description"
+            content="Skip the queue! Pre-order your favorite meals online and save time at your favorite restaurants."
+          />
+        </Helmet>
 
-          <AppRoutes />
+        <AppRoutes />
 
-          {/* ✅ Sonner toaster (global popup support) */}
-          <Toaster richColors position="top-center" />
-        </Router>
-      </MerchantConfigProvider>
+        {/* ✅ Sonner toaster (global popup support) */}
+        <Toaster richColors position="top-center" />
+      </Router>
     </AuthProvider>
   );
 }

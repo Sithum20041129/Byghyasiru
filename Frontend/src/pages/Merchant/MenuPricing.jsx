@@ -1,17 +1,22 @@
-import React, { useEffect, useState, useMemo } from "react";
+// src/pages/Merchant/MenuPricing.jsx
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -24,51 +29,52 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Food Form Component
-const FoodForm = ({ food, onSave, portions, loading }) => {
+// Reusable Food Form
+const FoodForm = ({ food, onSave, portions, onClose }) => {
   const [formData, setFormData] = useState(
     food || {
-      meal_time: "breakfast",
+      meal_time: "lunch",
       food_type: "main_meal",
       name: "",
       description: "",
       is_veg: false,
       is_divisible: false,
       extra_piece_price: "",
-      prices: {},
+      prices: {}, // Always initialized
     }
   );
 
   useEffect(() => {
-    if (food) setFormData(food);
+    if (food) {
+      setFormData({
+        ...food,
+        prices: food.prices || {}, // Ensure prices always exists
+        is_veg: !!food.is_veg,
+        is_divisible: !!food.is_divisible,
+      });
+    }
   }, [food]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
+  const handlePriceChange = (portion, value) => {
+    setFormData(prev => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handlePriceChange = (portionName, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      prices: { ...prev.prices, [portionName]: value },
+      prices: { ...prev.prices, [portion]: value }
     }));
   };
 
   const showPortionPrices = formData.food_type === "main_meal" || (formData.food_type === "curry" && !formData.is_veg);
   const showExtraPiece = formData.food_type === "curry" && !formData.is_veg && formData.is_divisible;
 
+  const handleSubmit = () => {
+    onSave(formData, !!food?.id);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 max-h-screen overflow-y-auto pb-10">
       <div>
         <Label>Meal Time *</Label>
-        <Select value={formData.meal_time} onValueChange={(value) => setFormData((prev) => ({ ...prev, meal_time: value }))}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select meal time" />
-          </SelectTrigger>
+        <Select value={formData.meal_time} onValueChange={v => setFormData(p => ({ ...p, meal_time: v }))}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="breakfast">Breakfast</SelectItem>
             <SelectItem value="lunch">Lunch</SelectItem>
@@ -79,64 +85,53 @@ const FoodForm = ({ food, onSave, portions, loading }) => {
 
       <div>
         <Label>Category *</Label>
-        <Select value={formData.food_type} onValueChange={(value) => setFormData((prev) => ({ ...prev, food_type: value }))}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
+        <Select value={formData.food_type} onValueChange={v => setFormData(p => ({ ...p, food_type: v, prices: {} }))}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="main_meal">Main Meals</SelectItem>
-            <SelectItem value="curry">Curries</SelectItem>
-            <SelectItem value="gravy">Gravies</SelectItem>
+            <SelectItem value="main_meal">Main Meal</SelectItem>
+            <SelectItem value="curry">Curry</SelectItem>
+            <SelectItem value="gravy">Gravy</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>Name *</Label>
-          <Input name="name" value={formData.name} onChange={handleChange} placeholder="e.g., Chicken Fried Rice" />
+          <Input value={formData.name || ""} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
         </div>
         <div>
           <Label>Description</Label>
-          <Input name="description" value={formData.description} onChange={handleChange} placeholder="Optional" />
+          <Input value={formData.description || ""} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} />
         </div>
       </div>
 
       {formData.food_type === "curry" && (
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="is_veg"
-            checked={formData.is_veg}
-            onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_veg: checked }))}
-          />
-          <Label htmlFor="is_veg">Vegetarian</Label>
+        <div className="flex items-center gap-2">
+          <Checkbox checked={formData.is_veg} onCheckedChange={c => setFormData(p => ({ ...p, is_veg: c, is_divisible: c ? false : p.is_divisible }))} />
+          <Label>Vegetarian</Label>
         </div>
       )}
 
       {formData.food_type === "curry" && !formData.is_veg && (
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="is_divisible"
-            checked={formData.is_divisible}
-            onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_divisible: checked }))}
-          />
-          <Label htmlFor="is_divisible">Divisible (e.g., chicken pieces)</Label>
+        <div className="flex items-center gap-2">
+          <Checkbox checked={formData.is_divisible} onCheckedChange={c => setFormData(p => ({ ...p, is_divisible: c }))} />
+          <Label>Divisible (extra pieces)</Label>
         </div>
       )}
 
       {showPortionPrices && (
-        <div className="space-y-3">
+        <div className="space-y-3 border-t pt-4">
           <Label>Portion Prices *</Label>
-          {portions[formData.food_type].map((portion) => (
-            <div key={portion} className="flex items-center gap-2">
-              <Label className="w-24">{portion}</Label>
+          {portions[formData.food_type].map(p => (
+            <div key={p} className="flex items-center gap-3">
+              <span className="w-24 text-sm font-medium">{p}</span>
               <Input
                 type="number"
-                placeholder="0.00"
-                value={formData.prices[portion] ?? ""}
-                onChange={(e) => handlePriceChange(portion, e.target.value)}
-                min="0"
                 step="0.01"
+                value={formData.prices?.[p] ?? ""}
+                onChange={e => handlePriceChange(p, e.target.value)}
+                placeholder="0.00"
               />
             </div>
           ))}
@@ -148,21 +143,17 @@ const FoodForm = ({ food, onSave, portions, loading }) => {
           <Label>Extra Piece Price</Label>
           <Input
             type="number"
-            name="extra_piece_price"
-            value={formData.extra_piece_price}
-            onChange={handleChange}
-            placeholder="e.g., 150.00"
-            min="0"
             step="0.01"
+            value={formData.extra_piece_price || ""}
+            onChange={e => setFormData(p => ({ ...p, extra_piece_price: e.target.value }))}
           />
         </div>
       )}
 
-      <DialogFooter>
-        <Button onClick={() => onSave(formData)} disabled={loading}>
-          {loading ? "Saving..." : "Save"}
-        </Button>
-      </DialogFooter>
+      <div className="flex justify-end gap-3 pt-6">
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSubmit}>{food?.id ? "Update" : "Add"} Food</Button>
+      </div>
     </div>
   );
 };
@@ -170,168 +161,183 @@ const FoodForm = ({ food, onSave, portions, loading }) => {
 const MenuPricing = () => {
   const [foods, setFoods] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [portions, setPortions] = useState({ main_meal: [], curry: [], gravy: [] });
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedMealTime, setSelectedMealTime] = useState("lunch");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingFood, setDeletingFood] = useState(null);
 
-  useEffect(() => {
-    loadMenu();
-    const loadPortions = async () => {
-      try {
-        const res = await fetch('/api/merchant/get_settings.php', { credentials: 'include' });
-        const d = await res.json();
-        if (d.ok && d.portions) {
-          const p = d.portions;
-          setPortions({
-            main_meal: p,
-            curry: p,
-            gravy: p.filter(x => x !== 'Half')
-          });
-        }
-      } catch (err) {
-        toast.error('Failed to load portions');
-      }
-    };
-    loadPortions();
-  }, []);
+  const portions = {
+    main_meal: ["Full", "Half", "Quarter"],
+    curry: ["Full", "Half", "Quarter"],
+    gravy: ["Full", "Half"]
+  };
 
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/merchant/get_menu.php', { credentials: 'include' });
+      const res = await fetch("/api/merchant/get_menu.php", { credentials: "include" });
       const data = await res.json();
       if (data.ok) setFoods(data.foods || []);
+      else toast.error(data.error || "Failed to load menu");
     } catch (err) {
-      toast.error('Failed to load menu');
+      toast.error("Network error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async (formData, isEdit = false) => {
+  useEffect(() => { loadMenu(); }, []);
+
+  const handleSave = async (formData, isEdit) => {
+    const endpoint = isEdit ? "/api/merchant/update_food.php" : "/api/merchant/add_food.php";
     try {
-      const endpoint = isEdit ? '/api/merchant/update_food.php' : '/api/merchant/add_food.php';
       const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(formData)
       });
       const data = await res.json();
       if (data.ok) {
-        toast.success(isEdit ? 'Updated!' : 'Added!');
-        setIsEditModalOpen(false);
+        toast.success(isEdit ? "Updated!" : "Added!");
+        setIsModalOpen(false);
+        setEditingFood(null);
         loadMenu();
-      } else {
-        toast.error(data.error || 'Save failed');
-      }
+      } else toast.error(data.error || "Save failed");
     } catch (err) {
-      toast.error('Network error');
+      toast.error("Network error");
     }
-  };
-
-  const handleEditClick = (food) => {
-    setEditingFood(food);
-    setIsEditModalOpen(true);
-  };
-
-  const handleDeleteClick = (food) => {
-    setDeletingFood(food);
-    setIsDeleteDialogOpen(true);
   };
 
   const confirmDelete = async () => {
     try {
-      const res = await fetch('/api/merchant/delete_food.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const res = await fetch("/api/merchant/delete_food.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ id: deletingFood.id })
       });
       const data = await res.json();
       if (data.ok) {
-        toast.success('Deleted!');
-        setIsDeleteDialogOpen(false);
+        toast.success("Deleted!");
         loadMenu();
-      } else {
-        toast.error(data.error);
-      }
+      } else toast.error(data.error);
     } catch (err) {
-      toast.error('Delete failed');
+      toast.error("Delete failed");
+    } finally {
+      setDeletingFood(null);
     }
   };
 
-  const groupedFoods = useMemo(() => {
-    return foods.reduce((acc, food) => {
-      if (!acc[food.meal_time]) acc[food.meal_time] = [];
-      acc[food.meal_time].push(food);
-      return acc;
-    }, {});
-  }, [foods]);
+  const filteredFoods = foods.filter(f => f.meal_time === selectedMealTime);
+
+  const sections = {
+    main_meal: filteredFoods.filter(f => f.food_type === "main_meal"),
+    curry: filteredFoods.filter(f => f.food_type === "curry"),
+    gravy: filteredFoods.filter(f => f.food_type === "gravy")
+  };
+
+  const sectionTitles = {
+    main_meal: "Main Meals",
+    curry: "Curries",
+    gravy: "Gravies"
+  };
 
   return (
-    <div className="space-y-6 p-4">
-      <h1 className="text-2xl font-bold">Menu & Pricing</h1>
+    <div className="space-y-8 p-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Menu & Pricing</h1>
+        <div className="flex items-center gap-4">
+          <Label className="text-lg">This menu is for:</Label>
+          <Select value={selectedMealTime} onValueChange={setSelectedMealTime}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="breakfast">Breakfast</SelectItem>
+              <SelectItem value="lunch">Lunch</SelectItem>
+              <SelectItem value="dinner">Dinner</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-      <Tabs defaultValue="breakfast">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="breakfast">Breakfast</TabsTrigger>
-          <TabsTrigger value="lunch">Lunch</TabsTrigger>
-          <TabsTrigger value="dinner">Dinner</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <p className="text-center py-10">Loading menu...</p>
+      ) : (
+        <div className="space-y-10">
+          {["main_meal", "curry", "gravy"].map(type => (
+            <section key={type} className="bg-white rounded-xl shadow-sm border p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">{sectionTitles[type]}</h2>
+                <Button onClick={() => {
+                  setEditingFood({
+                    meal_time: selectedMealTime,
+                    food_type: type,
+                    name: "",
+                    description: "",
+                    is_veg: false,
+                    is_divisible: false,
+                    extra_piece_price: "",
+                    prices: {} // Critical: always initialize prices
+                  });
+                  setIsModalOpen(true);
+                }}>
+                  Add {type === "main_meal" ? "Main Meal" : type === "curry" ? "Curry" : "Gravy"}
+                </Button>
+              </div>
 
-        {['breakfast', 'lunch', 'dinner'].map((mealTime) => (
-          <TabsContent key={mealTime} value={mealTime} className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold capitalize">{mealTime}</h2>
-              <Button onClick={() => { setEditingFood(null); setIsEditModalOpen(true); }}>
-                Add Food
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              {(groupedFoods[mealTime] || []).length > 0 ? (
-                groupedFoods[mealTime].map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-4 border rounded-xl hover:bg-gray-50">
-                    <div>
-                      <p className="font-medium text-lg">{item.name}</p>
-                      {item.description && <p className="text-sm text-gray-600">{item.description}</p>}
-                      <p className="text-xs text-gray-500 capitalize">{item.food_type.replace('_', ' ')}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditClick(item)}>Edit</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(item)}>Delete</Button>
-                    </div>
-                  </div>
-                ))
+              {sections[type].length === 0 ? (
+                <p className="text-center text-gray-500 py-8">
+                  No {sectionTitles[type].toLowerCase()} added yet
+                </p>
               ) : (
-                <p className="text-center text-gray-500 py-8">No items in {mealTime}</p>
+                <div className="grid gap-4">
+                  {sections[type].map(food => (
+                    <div key={food.id} className="flex justify-between items-center p-5 border rounded-lg hover:bg-gray-50">
+                      <div>
+                        <p className="font-semibold text-lg">{food.name}</p>
+                        {food.description && <p className="text-sm text-gray-600">{food.description}</p>}
+                        {food.is_veg == 1 && <span className="text-xs text-green-600 font-medium"> Vegetarian</span>}
+                      </div>
+                      <div className="flex gap-3">
+                        <Button variant="outline" size="sm" onClick={() => { setEditingFood(food); setIsModalOpen(true); }}>
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setDeletingFood(food)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+            </section>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-3xl max-h-screen overflow-y-auto">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingFood ? 'Edit Food' : 'Add New Food'}</DialogTitle>
+            <DialogTitle>{editingFood?.id ? "Edit" : "Add"} Food Item</DialogTitle>
           </DialogHeader>
-          <FoodForm food={editingFood} onSave={handleSave} portions={portions} loading={loading} />
+          <FoodForm
+            food={editingFood}
+            onSave={handleSave}
+            portions={portions}
+            onClose={() => { setIsModalOpen(false); setEditingFood(null); }}
+          />
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingFood} onOpenChange={() => setDeletingFood(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Food Item?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>"{deletingFood?.name}"</strong>.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Delete "{deletingFood?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

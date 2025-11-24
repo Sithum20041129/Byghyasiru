@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await apiCall('/auth/logout.php', { method: 'POST' });
     } catch (err) {
-      console.error('Logout error:', err);
+      console.warn('Logout API failed, but clearing session anyway:', err);
     } finally {
       setUser(null);
     }

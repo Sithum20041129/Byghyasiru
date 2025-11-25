@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Select,
@@ -28,131 +29,175 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-// Reusable Food Form
-const FoodForm = ({ food, onSave, portions, onClose }) => {
-  const [formData, setFormData] = useState(
-    food || {
-      meal_time: "lunch",
-      food_type: "main_meal",
-      name: "",
-      description: "",
-      is_veg: false,
-      is_divisible: false,
-      extra_piece_price: "",
-      prices: {}, // Always initialized
-    }
-  );
+// Reusable Food Card
+const FoodCard = ({ food, onEdit, onDelete, display }) => (
+  <div className="bg-white p-6 rounded-2xl shadow-md border hover:shadow-xl transition">
+    <div className="flex justify-between items-start mb-4">
+      <div>
+        <h3 className="text-xl font-bold">{food.name}</h3>
+        {food.food_type === "curry" && food.is_veg == 1 && <Badge className="mt-2" variant="success">VEG</Badge>}
+        {food.food_type === "curry" && food.is_veg == 0 && <Badge className="mt-2" variant="destructive">NON-VEG</Badge>}
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={onEdit}>Edit</Button>
+        <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
+      </div>
+    </div>
+    <div className="pt-4 border-t">
+      {display}
+    </div>
+  </div>
+);
 
-  useEffect(() => {
-    if (food) {
-      setFormData({
-        ...food,
-        prices: food.prices || {}, // Ensure prices always exists
-        is_veg: !!food.is_veg,
-        is_divisible: !!food.is_divisible,
-      });
-    }
-  }, [food]);
+// Updated Food Form - Fixed Checkbox & Extra Piece Logic
+const FoodForm = ({ food, onSave, onClose }) => {
+  const isEdit = !!food?.id;
+  const isMainMeal = food?.food_type === "main_meal";
+  const isGravy = food?.food_type === "gravy";
+  const isCurry = food?.food_type === "curry" || (!isEdit && !isMainMeal && !isGravy);
+
+  // Form state
+  const [name, setName] = useState(food?.name || "");
+  
+  // For curry: determine initial veg/non-veg
+  const initialIsVeg = isEdit 
+    ? (food?.is_veg == 1 ? "veg" : "nonveg")
+    : "veg";
+  const [isVeg, setIsVeg] = useState(initialIsVeg);
+
+  // For non-veg: is_divisible (can sell extra pieces)
+  const initialDivisible = isEdit && food?.is_veg == 0 ? !!food?.is_divisible : false;
+  const [isDivisible, setIsDivisible] = useState(initialDivisible);
+
+  const [prices, setPrices] = useState({
+    Full: food?.prices?.Full || "",
+    Half: food?.prices?.Half || "",
+    Quarter: food?.prices?.Quarter || "",
+  });
+
+  const [extraPiecePrice, setExtraPiecePrice] = useState(food?.extra_piece_price || "");
 
   const handlePriceChange = (portion, value) => {
-    setFormData(prev => ({
-      ...prev,
-      prices: { ...prev.prices, [portion]: value }
-    }));
+    setPrices(p => ({ ...p, [portion]: value }));
   };
 
-  const showPortionPrices = formData.food_type === "main_meal" || (formData.food_type === "curry" && !formData.is_veg);
-  const showExtraPiece = formData.food_type === "curry" && !formData.is_veg && formData.is_divisible;
+  const handleSave = () => {
+    const baseData = {
+      name: name.trim(),
+      food_type: food?.food_type || "curry",
+    };
 
-  const handleSubmit = () => {
-    onSave(formData, !!food?.id);
+    if (isMainMeal) {
+      onSave({
+        ...baseData,
+        prices,
+      });
+    } else if (isCurry) {
+      onSave({
+        ...baseData,
+        is_veg: isVeg === "veg" ? 1 : 0,
+        is_divisible: isVeg === "nonveg" && isDivisible ? 1 : 0,
+        prices: isVeg === "nonveg" ? prices : {},
+        extra_piece_price: isVeg === "nonveg" && isDivisible ? extraPiecePrice : "",
+      });
+    } else if (isGravy) {
+      onSave(baseData);
+    }
   };
+
+  // Only allow "Can sell extra pieces" for non-veg curries
+  const showPortionPrices = isCurry && isVeg === "nonveg";
+  const showExtraPieceOption = showPortionPrices;
 
   return (
-    <div className="space-y-5 max-h-screen overflow-y-auto pb-10">
+    <div className="space-y-6">
       <div>
-        <Label>Meal Time *</Label>
-        <Select value={formData.meal_time} onValueChange={v => setFormData(p => ({ ...p, meal_time: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="breakfast">Breakfast</SelectItem>
-            <SelectItem value="lunch">Lunch</SelectItem>
-            <SelectItem value="dinner">Dinner</SelectItem>
-          </SelectContent>
-        </Select>
+        <Label>Name *</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Enter name" autoFocus />
       </div>
 
-      <div>
-        <Label>Category *</Label>
-        <Select value={formData.food_type} onValueChange={v => setFormData(p => ({ ...p, food_type: v, prices: {} }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="main_meal">Main Meal</SelectItem>
-            <SelectItem value="curry">Curry</SelectItem>
-            <SelectItem value="gravy">Gravy</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+      {/* Curry Type Selection - Only when adding new curry */}
+      {isCurry && !isEdit && (
         <div>
-          <Label>Name *</Label>
-          <Input value={formData.name || ""} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
-        </div>
-        <div>
-          <Label>Description</Label>
-          <Input value={formData.description || ""} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} />
-        </div>
-      </div>
-
-      {formData.food_type === "curry" && (
-        <div className="flex items-center gap-2">
-          <Checkbox checked={formData.is_veg} onCheckedChange={c => setFormData(p => ({ ...p, is_veg: c, is_divisible: c ? false : p.is_divisible }))} />
-          <Label>Vegetarian</Label>
+          <Label>Curry Type *</Label>
+          <RadioGroup value={isVeg} onValueChange={setIsVeg}>
+            <div className="flex items-center space-x-6 mt-3">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="veg" id="veg" />
+                <Label htmlFor="veg" className="cursor-pointer font-medium">Vegetarian</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="nonveg" id="nonveg" />
+                <Label htmlFor="nonveg" className="cursor-pointer font-medium">Non-Vegetarian</Label>
+              </div>
+            </div>
+          </RadioGroup>
         </div>
       )}
 
-      {formData.food_type === "curry" && !formData.is_veg && (
-        <div className="flex items-center gap-2">
-          <Checkbox checked={formData.is_divisible} onCheckedChange={c => setFormData(p => ({ ...p, is_divisible: c }))} />
-          <Label>Divisible (extra pieces)</Label>
+      {/* Show badge when editing curry */}
+      {isCurry && isEdit && (
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <Badge variant={food.is_veg == 1 ? "success" : "destructive"} className="text-lg">
+            {food.is_veg == 1 ? "Vegetarian" : "Non-Vegetarian"}
+          </Badge>
         </div>
       )}
 
-      {showPortionPrices && (
-        <div className="space-y-3 border-t pt-4">
-          <Label>Portion Prices *</Label>
-          {portions[formData.food_type].map(p => (
-            <div key={p} className="flex items-center gap-3">
-              <span className="w-24 text-sm font-medium">{p}</span>
+      {/* Portion Prices - Only for Non-Veg Curries & Main Meals */}
+      {(showPortionPrices || isMainMeal) && (
+        <div className="space-y-4 pt-4 border-t">
+          <Label className="text-lg font-medium">Portion Prices (₹)</Label>
+          {["Full", "Half", "Quarter"].map(portion => (
+            <div key={portion} className="flex items-center gap-4">
+              <span className="w-24 text-sm font-medium">{portion}:</span>
               <Input
                 type="number"
-                step="0.01"
-                value={formData.prices?.[p] ?? ""}
-                onChange={e => handlePriceChange(p, e.target.value)}
-                placeholder="0.00"
+                value={prices[portion] || ""}
+                onChange={e => handlePriceChange(portion, e.target.value)}
+                placeholder="0"
+                className="w-32"
               />
             </div>
           ))}
         </div>
       )}
 
-      {showExtraPiece && (
-        <div>
-          <Label>Extra Piece Price</Label>
+      {/* Can Sell Extra Pieces - Only for Non-Veg Curries */}
+      {showExtraPieceOption && (
+        <div className="flex items-center space-x-3 pt-4">
+          <Checkbox
+            id="divisible"
+            checked={isDivisible}
+            onCheckedChange={(checked) => setIsDivisible(checked === true)}
+          />
+          <Label htmlFor="divisible" className="cursor-pointer font-normal">
+            Can sell extra pieces
+          </Label>
+        </div>
+      )}
+
+      {/* Extra Piece Price Field */}
+      {showExtraPieceOption && isDivisible && (
+        <div className="ml-8 -mt-2">
+          <Label>Extra Piece Price (₹)</Label>
           <Input
             type="number"
-            step="0.01"
-            value={formData.extra_piece_price || ""}
-            onChange={e => setFormData(p => ({ ...p, extra_piece_price: e.target.value }))}
+            value={extraPiecePrice}
+            onChange={e => setExtraPiecePrice(e.target.value)}
+            placeholder="e.g. 50"
+            className="w-32"
           />
         </div>
       )}
 
       <div className="flex justify-end gap-3 pt-6">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit}>{food?.id ? "Update" : "Add"} Food</Button>
+        <Button onClick={handleSave} disabled={!name.trim()}>
+          {isEdit ? "Update" : "Add"}
+        </Button>
       </div>
     </div>
   );
@@ -166,11 +211,8 @@ const MenuPricing = () => {
   const [editingFood, setEditingFood] = useState(null);
   const [deletingFood, setDeletingFood] = useState(null);
 
-  const portions = {
-    main_meal: ["Full", "Half", "Quarter"],
-    curry: ["Full", "Half", "Quarter"],
-    gravy: ["Full", "Half"]
-  };
+  // Global veg curry price
+  const [vegCurryPrice, setVegCurryPrice] = useState("80");
 
   const loadMenu = async () => {
     setLoading(true);
@@ -178,9 +220,8 @@ const MenuPricing = () => {
       const res = await fetch("/api/merchant/get_menu.php", { credentials: "include" });
       const data = await res.json();
       if (data.ok) setFoods(data.foods || []);
-      else toast.error(data.error || "Failed to load menu");
     } catch (err) {
-      toast.error("Network error");
+      toast.error("Failed to load menu");
     } finally {
       setLoading(false);
     }
@@ -189,13 +230,23 @@ const MenuPricing = () => {
   useEffect(() => { loadMenu(); }, []);
 
   const handleSave = async (formData, isEdit) => {
+    const payload = {
+      ...formData,
+      meal_time: selectedMealTime,
+    };
+
+    if (!isEdit) {
+      payload.food_type = editingFood?.food_type || "curry";
+    }
+
     const endpoint = isEdit ? "/api/merchant/update_food.php" : "/api/merchant/add_food.php";
+
     try {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.ok) {
@@ -203,8 +254,10 @@ const MenuPricing = () => {
         setIsModalOpen(false);
         setEditingFood(null);
         loadMenu();
-      } else toast.error(data.error || "Save failed");
-    } catch (err) {
+      } else {
+        toast.error(data.error || "Save failed");
+      }
+    } catch {
       toast.error("Network error");
     }
   };
@@ -221,36 +274,53 @@ const MenuPricing = () => {
       if (data.ok) {
         toast.success("Deleted!");
         loadMenu();
-      } else toast.error(data.error);
-    } catch (err) {
-      toast.error("Delete failed");
-    } finally {
-      setDeletingFood(null);
-    }
+      } else toast.error(data.error || "Delete failed");
+    } catch { }
+    finally { setDeletingFood(null); }
   };
 
-  const filteredFoods = foods.filter(f => f.meal_time === selectedMealTime);
+  const filtered = foods.filter(f => f.meal_time === selectedMealTime);
 
   const sections = {
-    main_meal: filteredFoods.filter(f => f.food_type === "main_meal"),
-    curry: filteredFoods.filter(f => f.food_type === "curry"),
-    gravy: filteredFoods.filter(f => f.food_type === "gravy")
+    main_meal: filtered.filter(f => f.food_type === "main_meal"),
+    curry: filtered.filter(f => f.food_type === "curry"),
+    gravy: filtered.filter(f => f.food_type === "gravy")
   };
 
-  const sectionTitles = {
-    main_meal: "Main Meals",
-    curry: "Curries",
-    gravy: "Gravies"
+  const renderPriceDisplay = (food) => {
+    if (food.food_type === "gravy") {
+      return <Badge variant="outline" className="text-lg font-medium">FREE</Badge>;
+    }
+    if (food.food_type === "curry" && food.is_veg == 1) {
+      return <Badge variant="secondary" className="text-lg">₹{vegCurryPrice} (All Veg Curries)</Badge>;
+    }
+    if (food.food_type === "curry" && food.is_divisible == 1) {
+      return (
+        <div className="text-sm space-y-1">
+          {["Full", "Half", "Quarter"].map(p => food.prices?.[p] && (
+            <div key={p}>{p}: ₹{food.prices[p]}</div>
+          ))}
+          <div className="text-green-600 font-semibold">Extra Piece: ₹{food.extra_piece_price}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="text-sm space-y-1">
+        {["Full", "Half", "Quarter"].map(p => food.prices?.[p] && (
+          <div key={p}>{p}: ₹{food.prices[p]}</div>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-10 p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Menu & Pricing</h1>
+        <h1 className="text-4xl font-bold text-gray-800">Menu & Pricing</h1>
         <div className="flex items-center gap-4">
-          <Label className="text-lg">This menu is for:</Label>
+          <Label className="text-lg font-medium">Menu for:</Label>
           <Select value={selectedMealTime} onValueChange={setSelectedMealTime}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-56 text-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -263,70 +333,123 @@ const MenuPricing = () => {
       </div>
 
       {loading ? (
-        <p className="text-center py-10">Loading menu...</p>
+        <p className="text-center py-20 text-gray-500">Loading your menu...</p>
       ) : (
-        <div className="space-y-10">
-          {["main_meal", "curry", "gravy"].map(type => (
-            <section key={type} className="bg-white rounded-xl shadow-sm border p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-semibold">{sectionTitles[type]}</h2>
-                <Button onClick={() => {
-                  setEditingFood({
-                    meal_time: selectedMealTime,
-                    food_type: type,
-                    name: "",
-                    description: "",
-                    is_veg: false,
-                    is_divisible: false,
-                    extra_piece_price: "",
-                    prices: {} // Critical: always initialize prices
-                  });
-                  setIsModalOpen(true);
-                }}>
-                  Add {type === "main_meal" ? "Main Meal" : type === "curry" ? "Curry" : "Gravy"}
-                </Button>
-              </div>
+        <div className="space-y-12">
 
-              {sections[type].length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
-                  No {sectionTitles[type].toLowerCase()} added yet
-                </p>
+          {/* MAIN MEALS */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Main Meals</h2>
+              <Button onClick={() => { setEditingFood({ food_type: "main_meal" }); setIsModalOpen(true); }}>
+                Add Main Meal
+              </Button>
+            </div>
+            <div className="grid gap-5">
+              {sections.main_meal.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No main meals yet</div>
               ) : (
-                <div className="grid gap-4">
-                  {sections[type].map(food => (
-                    <div key={food.id} className="flex justify-between items-center p-5 border rounded-lg hover:bg-gray-50">
-                      <div>
-                        <p className="font-semibold text-lg">{food.name}</p>
-                        {food.description && <p className="text-sm text-gray-600">{food.description}</p>}
-                        {food.is_veg == 1 && <span className="text-xs text-green-600 font-medium"> Vegetarian</span>}
-                      </div>
-                      <div className="flex gap-3">
-                        <Button variant="outline" size="sm" onClick={() => { setEditingFood(food); setIsModalOpen(true); }}>
-                          Edit
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeletingFood(food)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                sections.main_meal.map(food => (
+                  <FoodCard
+                    key={food.id}
+                    food={food}
+                    onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
+                    onDelete={() => setDeletingFood(food)}
+                    display={renderPriceDisplay(food)}
+                  />
+                ))
               )}
-            </section>
-          ))}
+            </div>
+          </div>
+
+          {/* CURRIES */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Curries</h2>
+              <Button onClick={() => { setEditingFood({ food_type: "curry" }); setIsModalOpen(true); }}>
+                Add Curry
+              </Button>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-xl p-5 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-green-800">All Vegetarian Curries</p>
+                <p className="text-sm text-green-700">Same price for every veg curry</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-bold text-green-700">₹</span>
+                <Input
+                  type="number"
+                  value={vegCurryPrice}
+                  onChange={e => setVegCurryPrice(e.target.value)}
+                  className="w-24 text-2xl font-bold text-center"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-5">
+              {sections.curry.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No curries yet</div>
+              ) : (
+                sections.curry.map(food => (
+                  <FoodCard
+                    key={food.id}
+                    food={food}
+                    onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
+                    onDelete={() => setDeletingFood(food)}
+                    display={renderPriceDisplay(food)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* GRAVIES */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Gravies</h2>
+              <Button onClick={() => { setEditingFood({ food_type: "gravy" }); setIsModalOpen(true); }}>
+                Add Gravy
+              </Button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+              <p className="text-2xl font-bold text-blue-700">All Gravies are FREE</p>
+              <p className="text-blue-600 mt-2">Included with every meal</p>
+            </div>
+
+            <div className="grid gap-5">
+              {sections.gravy.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No gravies yet</div>
+              ) : (
+                sections.gravy.map(food => (
+                  <FoodCard
+                    key={food.id}
+                    food={food}
+                    onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
+                    onDelete={() => setDeletingFood(food)}
+                    display={<Badge variant="outline" className="text-lg">FREE</Badge>}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingFood?.id ? "Edit" : "Add"} Food Item</DialogTitle>
+            <DialogTitle>
+              {editingFood?.id ? "Edit" : "Add"}{" "}
+              {editingFood?.food_type === "main_meal" ? "Main Meal" :
+               editingFood?.food_type === "curry" ? "Curry" : "Gravy"}
+            </DialogTitle>
           </DialogHeader>
           <FoodForm
             food={editingFood}
-            onSave={handleSave}
-            portions={portions}
+            onSave={(data) => handleSave(data, !!editingFood?.id)}
             onClose={() => { setIsModalOpen(false); setEditingFood(null); }}
           />
         </DialogContent>

@@ -45,13 +45,31 @@ try {
 
     // 🔹 Foods for this store
     $foodsStmt = $pdo->prepare("
-        SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time
+        SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg
         FROM foods f
         WHERE f.merchant_id = ? AND f.available = 1
-        ORDER BY f.category, f.name ASC
+        ORDER BY f.food_type DESC, f.name ASC
     ");
     $foodsStmt->execute([$storeId]);
     $foods = $foodsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 🔹 Fetch portion prices for each food
+    foreach ($foods as &$food) {
+        try {
+            $priceStmt = $pdo->prepare("SELECT portion_name, price FROM food_prices WHERE food_id = ?");
+            $priceStmt->execute([$food['id']]);
+            $portionPrices = $priceStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $food['prices'] = [];
+            foreach ($portionPrices as $pp) {
+                $food['prices'][$pp['portion_name']] = $pp['price'];
+            }
+            $food['portion_prices'] = $portionPrices;
+        } catch (Exception $ex) {
+            // Ignore if table doesn't exist yet
+            $food['portion_prices'] = [];
+        }
+    }
 
     // 🔹 Store settings
     $settings = [

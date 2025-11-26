@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, ShoppingBag, CheckCircle, CalendarCheck } from 'lucide-react';
+import { Clock, ShoppingBag, CheckCircle, CalendarCheck, Coffee, Sun, Moon } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const StatCard = ({ title, value, icon: Icon, colorClass, iconColorClass }) => (
   <Card className="store-card">
@@ -42,7 +43,37 @@ const StatsCards = ({ pendingCount, activeCount, completedTodayCount, completedM
           <h2 className="text-xl font-bold text-gray-800">Store Status</h2>
           <p className="text-gray-500 text-sm">Manage your store's availability instantly</p>
         </div>
-        <div className="flex gap-8">
+        <div className="flex flex-wrap gap-8 justify-center md:justify-end">
+
+          {/* Active Meal Time Selector */}
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden md:block">
+              <Label className="font-semibold block">Meal Time</Label>
+              <span className="text-xs text-gray-500">Currently serving</span>
+            </div>
+            <Select
+              value={storeSettings?.active_meal_time}
+              onValueChange={(val) => onToggleSetting('active_meal_time', val)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Select meal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Breakfast">
+                  <div className="flex items-center gap-2"><Coffee className="w-4 h-4 text-amber-600" /> Breakfast</div>
+                </SelectItem>
+                <SelectItem value="Lunch">
+                  <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-orange-600" /> Lunch</div>
+                </SelectItem>
+                <SelectItem value="Dinner">
+                  <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-indigo-600" /> Dinner</div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="h-10 w-px bg-gray-200 hidden md:block"></div>
+
           <div className="flex items-center gap-3">
             <div className="text-right">
               <Label htmlFor="store-open" className="font-semibold block">Store Open</Label>

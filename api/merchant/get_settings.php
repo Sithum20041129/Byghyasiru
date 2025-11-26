@@ -17,7 +17,7 @@ if (!$merchant_id) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT is_open, accepting_orders, order_limit, closing_time, free_veg_curries_count, veg_curry_price
+        SELECT is_open, accepting_orders, order_limit, closing_time, free_veg_curries_count, veg_curry_price, active_meal_time
         FROM merchants WHERE id = ?
     ");
     $stmt->execute([$merchant_id]);
@@ -36,6 +36,7 @@ try {
         'accepting_orders' => (int)$settings['accepting_orders'],
         'order_limit' => $settings['order_limit'] ? (int)$settings['order_limit'] : null,
         'closing_time' => $settings['closing_time'] ?? '22:00',
+        'active_meal_time' => $settings['active_meal_time'] ?? 'Lunch',
         'free_veg_curries_count' => (int)($settings['free_veg_curries_count'] ?? 0),
         'veg_curry_price' => (float)($settings['veg_curry_price'] ?? 0),
         'portions' => $portions

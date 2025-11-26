@@ -13,7 +13,7 @@ $university_id = isset($_GET['university_id']) && $_GET['university_id'] !== ''
 try {
     $sql = "
       SELECT m.id, m.user_id, m.store_name, m.store_address, m.website_charge,
-             m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
+             m.is_open, m.accepting_orders, m.order_limit, m.closing_time, m.active_meal_time,
              m.university_id,
              u.username AS owner_username, u.name AS owner_name, u.email AS owner_email,
              un.name AS university_name

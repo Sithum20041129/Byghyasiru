@@ -17,7 +17,11 @@ const MerchantDashboard = () => {
   const [activeOrders, setActiveOrders] = useState([]);
   const [completedOrdersToday, setCompletedOrdersToday] = useState([]);
   const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState([]);
-  const [storeSettings, setStoreSettings] = useState({ is_open: false, accepting_orders: false });
+  const [storeSettings, setStoreSettings] = useState({
+    is_open: false,
+    accepting_orders: false,
+    active_meal_time: 'Lunch'
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const { user, logout, loading: authLoading } = useAuth();
@@ -41,7 +45,8 @@ const MerchantDashboard = () => {
       if (data.ok) {
         setStoreSettings({
           is_open: data.is_open === 1,
-          accepting_orders: data.accepting_orders === 1
+          accepting_orders: data.accepting_orders === 1,
+          active_meal_time: data.active_meal_time || 'Lunch'
         });
       }
     } catch (err) {

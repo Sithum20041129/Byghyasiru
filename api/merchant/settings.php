@@ -31,6 +31,10 @@ if (array_key_exists('closing_time', $data)) {
     $fields[] = "closing_time = ?";
     $params[] = $data['closing_time'];
 }
+if (array_key_exists('active_meal_time', $data)) {
+    $fields[] = "active_meal_time = ?";
+    $params[] = $data['active_meal_time'];
+}
 if (array_key_exists('free_veg_curries_count', $data)) {
     $fields[] = "free_veg_curries_count = ?";
     $params[] = intval($data['free_veg_curries_count']);

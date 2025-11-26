@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Select,
@@ -33,7 +34,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Reusable Food Card
-const FoodCard = ({ food, onEdit, onDelete, display }) => (
+const FoodCard = ({ food, onEdit, onDelete, onToggleAvailability, display }) => (
   <div className="bg-white p-6 rounded-2xl shadow-md border hover:shadow-xl transition">
     <div className="flex justify-between items-start mb-4">
       <div>
@@ -46,10 +47,22 @@ const FoodCard = ({ food, onEdit, onDelete, display }) => (
         <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
       </div>
     </div>
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center space-x-2">
+        <Switch
+          id={`availability-${food.id}`}
+          checked={food.is_available == 1}
+          onCheckedChange={(checked) => onToggleAvailability(food, checked)}
+        />
+        <Label htmlFor={`availability-${food.id}`} className="cursor-pointer">
+          {food.is_available == 1 ? "Available" : "Unavailable"}
+        </Label>
+      </div>
+    </div>
     <div className="pt-4 border-t">
       {display}
     </div>
-  </div>
+  </div >
 );
 
 // Updated Food Form - Fixed Checkbox & Extra Piece Logic
@@ -340,6 +353,44 @@ const MenuPricing = () => {
     }
   };
 
+  const toggleAvailability = async (food, isAvailable) => {
+    // Optimistic update
+    setFoods(prev => prev.map(f =>
+      f.id === food.id ? { ...f, is_available: isAvailable ? 1 : 0 } : f
+    ));
+
+    try {
+      const res = await fetch("/api/merchant/update_food_availability.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id: food.id, is_available: isAvailable })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server returned ${res.status} ${res.statusText}. Response: ${text.substring(0, 100)}...`);
+      }
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        // Revert on failure
+        setFoods(prev => prev.map(f =>
+          f.id === food.id ? { ...f, is_available: !isAvailable ? 1 : 0 } : f
+        ));
+        toast.error(data.error || "Failed to update availability");
+      }
+    } catch (err) {
+      console.error("Toggle availability error:", err);
+      // Revert on error
+      setFoods(prev => prev.map(f =>
+        f.id === food.id ? { ...f, is_available: !isAvailable ? 1 : 0 } : f
+      ));
+      toast.error("Network error");
+    }
+  };
+
   const renderPriceDisplay = (food) => {
     if (food.food_type === "gravy") {
       return <Badge variant="outline" className="text-lg font-medium">FREE</Badge>;
@@ -408,6 +459,7 @@ const MenuPricing = () => {
                     food={food}
                     onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
                     onDelete={() => setDeletingFood(food)}
+                    onToggleAvailability={toggleAvailability}
                     display={renderPriceDisplay(food)}
                   />
                 ))
@@ -477,6 +529,7 @@ const MenuPricing = () => {
                     food={food}
                     onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
                     onDelete={() => setDeletingFood(food)}
+                    onToggleAvailability={toggleAvailability}
                     display={renderPriceDisplay(food)}
                   />
                 ))
@@ -508,6 +561,7 @@ const MenuPricing = () => {
                     food={food}
                     onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
                     onDelete={() => setDeletingFood(food)}
+                    onToggleAvailability={toggleAvailability}
                     display={<Badge variant="outline" className="text-lg">FREE</Badge>}
                   />
                 ))

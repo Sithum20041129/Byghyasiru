@@ -17,6 +17,7 @@ const MerchantDashboard = () => {
   const [activeOrders, setActiveOrders] = useState([]);
   const [completedOrdersToday, setCompletedOrdersToday] = useState([]);
   const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState([]);
+  const [storeSettings, setStoreSettings] = useState({ is_open: false, accepting_orders: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const { user, logout, loading: authLoading } = useAuth();
@@ -30,7 +31,23 @@ const MerchantDashboard = () => {
       return;
     }
     loadOrders();
+    loadSettings();
   }, [user, authLoading, navigate]);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/merchant/get_settings.php', { credentials: 'include' });
+      const data = await res.json();
+      if (data.ok) {
+        setStoreSettings({
+          is_open: data.is_open === 1,
+          accepting_orders: data.accepting_orders === 1
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load settings", err);
+    }
+  };
 
   const loadOrders = async () => {
     setLoading(true);
@@ -72,6 +89,33 @@ const MerchantDashboard = () => {
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Update failed', variant: 'destructive' });
+    }
+  };
+
+  const toggleSetting = async (key, value) => {
+    // Optimistic update
+    setStoreSettings(prev => ({ ...prev, [key]: value }));
+
+    try {
+      const res = await fetch('/api/merchant/settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ [key]: value })
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        // Revert
+        setStoreSettings(prev => ({ ...prev, [key]: !value }));
+        toast({ title: 'Error', description: data.error || 'Failed to update setting', variant: 'destructive' });
+      } else {
+        toast({ title: 'Success', description: 'Store status updated' });
+      }
+    } catch (err) {
+      // Revert
+      setStoreSettings(prev => ({ ...prev, [key]: !value }));
+      toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
     }
   };
 
@@ -123,6 +167,8 @@ const MerchantDashboard = () => {
           activeCount={activeOrders.length}
           completedTodayCount={completedOrdersToday.length}
           completedMonthCount={completedOrdersThisMonth.length}
+          storeSettings={storeSettings}
+          onToggleSetting={toggleSetting}
         />
 
         <motion.div

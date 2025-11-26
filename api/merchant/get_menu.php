@@ -34,6 +34,8 @@ if (empty($_SESSION['merchant_id'])) {
 
 $merchant_id = $_SESSION['merchant_id'];
 
+$merchant_id = $_SESSION['merchant_id'];
+
 try {
     $stmt = $pdo->prepare("
         SELECT * FROM foods 

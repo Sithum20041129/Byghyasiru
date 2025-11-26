@@ -8,8 +8,6 @@ import { toast } from "sonner";
 import { Clock, Plus, X } from "lucide-react";
 
 export default function StoreSettings() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [dailyLimit, setDailyLimit] = useState(50);
   const [closingTime, setClosingTime] = useState("22:00");
   const [newPortion, setNewPortion] = useState("");
@@ -25,8 +23,6 @@ export default function StoreSettings() {
       const res = await fetch('/api/merchant/get_settings.php', { credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
-        setIsOpen(data.is_open === 1);
-        setAcceptingOrders(data.accepting_orders === 1);
         setDailyLimit(data.order_limit || 50);
         setClosingTime(data.closing_time || "22:00");
         setPortions(data.portions || []);
@@ -44,8 +40,6 @@ export default function StoreSettings() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          is_open: isOpen,
-          accepting_orders: acceptingOrders,
           order_limit: parseInt(dailyLimit) || null,
           closing_time: closingTime,
           portions: portions
@@ -93,24 +87,6 @@ export default function StoreSettings() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div>
-              <Label className="text-base font-medium">Store Open</Label>
-              <p className="text-sm text-gray-600">Accept new customers</p>
-            </div>
-            <Switch checked={isOpen} onCheckedChange={setIsOpen} />
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div>
-              <Label className="text-base font-medium">Accepting Orders</Label>
-              <p className="text-sm text-gray-600">Allow online pre-orders</p>
-            </div>
-            <Switch checked={acceptingOrders} onCheckedChange={setAcceptingOrders} />
-          </div>
-        </div>
-
-        <div className="space-y-6">
           <div>
             <Label>Daily Order Limit</Label>
             <Input
@@ -137,39 +113,39 @@ export default function StoreSettings() {
             <p className="text-sm text-gray-600 mt-1">Display closing time to customers</p>
           </div>
         </div>
+
+        <div className="space-y-4">
+          <Label>Add Portion Categories</Label>
+          <div className="flex gap-2">
+            <Input
+              value={newPortion}
+              onChange={(e) => setNewPortion(e.target.value)}
+              placeholder="e.g., Small, Large"
+              onKeyPress={(e) => e.key === 'Enter' && addPortion()}
+            />
+            <Button onClick={addPortion} size="icon">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {portions.length === 0 ? (
+              <p className="text-sm text-gray-500">No portions added</p>
+            ) : (
+              portions.map((p) => (
+                <div key={p} className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                  {p}
+                  <button onClick={() => removePortion(p)}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <Label>Add Portion Categories</Label>
-        <div className="flex gap-2">
-          <Input
-            value={newPortion}
-            onChange={(e) => setNewPortion(e.target.value)}
-            placeholder="e.g., Small, Large"
-            onKeyPress={(e) => e.key === 'Enter' && addPortion()}
-          />
-          <Button onClick={addPortion} size="icon">
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {portions.length === 0 ? (
-            <p className="text-sm text-gray-500">No portions added</p>
-          ) : (
-            portions.map((p) => (
-              <div key={p} className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                {p}
-                <button onClick={() => removePortion(p)}>
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <Button 
+      <Button
         onClick={saveSettings}
         disabled={loading}
         className="w-full bg-orange-500 hover:bg-orange-600 text-white"

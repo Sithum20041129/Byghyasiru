@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -52,7 +53,7 @@ const FoodCard = ({ food, onEdit, onDelete, display }) => (
 );
 
 // Updated Food Form - Fixed Checkbox & Extra Piece Logic
-const FoodForm = ({ food, onSave, onClose }) => {
+const FoodForm = ({ food, portions, onSave, onClose }) => {
   const isEdit = !!food?.id;
   const isMainMeal = food?.food_type === "main_meal";
   const isGravy = food?.food_type === "gravy";
@@ -60,21 +61,27 @@ const FoodForm = ({ food, onSave, onClose }) => {
 
   // Form state
   const [name, setName] = useState(food?.name || "");
-  
+
   // For curry: determine initial veg/non-veg
-  const initialIsVeg = isEdit 
+  const initialIsVeg = isEdit
     ? (food?.is_veg == 1 ? "veg" : "nonveg")
     : "veg";
   const [isVeg, setIsVeg] = useState(initialIsVeg);
 
   // For non-veg: is_divisible (can sell extra pieces)
-  const initialDivisible = isEdit && food?.is_veg == 0 ? !!food?.is_divisible : false;
+  const initialDivisible = isEdit && food?.is_veg == 0 ? food?.is_divisible == 1 : false;
   const [isDivisible, setIsDivisible] = useState(initialDivisible);
 
-  const [prices, setPrices] = useState({
-    Full: food?.prices?.Full || "",
-    Half: food?.prices?.Half || "",
-    Quarter: food?.prices?.Quarter || "",
+  const parsedPrices = typeof food?.prices === 'string'
+    ? JSON.parse(food.prices)
+    : (food?.prices || {});
+
+  const [prices, setPrices] = useState(() => {
+    const initialPrices = {};
+    portions.forEach(p => {
+      initialPrices[p.name] = parsedPrices[p.name] || "";
+    });
+    return initialPrices;
   });
 
   const [extraPiecePrice, setExtraPiecePrice] = useState(food?.extra_piece_price || "");
@@ -150,18 +157,22 @@ const FoodForm = ({ food, onSave, onClose }) => {
       {(showPortionPrices || isMainMeal) && (
         <div className="space-y-4 pt-4 border-t">
           <Label className="text-lg font-medium">Portion Prices (₹)</Label>
-          {["Full", "Half", "Quarter"].map(portion => (
-            <div key={portion} className="flex items-center gap-4">
-              <span className="w-24 text-sm font-medium">{portion}:</span>
-              <Input
-                type="number"
-                value={prices[portion] || ""}
-                onChange={e => handlePriceChange(portion, e.target.value)}
-                placeholder="0"
-                className="w-32"
-              />
-            </div>
-          ))}
+          {portions.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">No portions configured in Store Settings.</p>
+          ) : (
+            portions.map(portion => (
+              <div key={portion.id} className="flex items-center gap-4">
+                <span className="w-24 text-sm font-medium">{portion.name}:</span>
+                <Input
+                  type="number"
+                  value={prices[portion.name] || ""}
+                  onChange={e => handlePriceChange(portion.name, e.target.value)}
+                  placeholder="0"
+                  className="w-32"
+                />
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -171,7 +182,7 @@ const FoodForm = ({ food, onSave, onClose }) => {
           <Checkbox
             id="divisible"
             checked={isDivisible}
-            onCheckedChange={(checked) => setIsDivisible(checked === true)}
+            onChange={(checked) => setIsDivisible(checked)}
           />
           <Label htmlFor="divisible" className="cursor-pointer font-normal">
             Can sell extra pieces
@@ -205,23 +216,38 @@ const FoodForm = ({ food, onSave, onClose }) => {
 
 const MenuPricing = () => {
   const [foods, setFoods] = useState([]);
+  const [portions, setPortions] = useState([]);
+  const [vegCurryPrice, setVegCurryPrice] = useState("");
+  const [freeVegCurriesCount, setFreeVegCurriesCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [selectedMealTime, setSelectedMealTime] = useState("lunch");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [deletingFood, setDeletingFood] = useState(null);
 
   // Global veg curry price
-  const [vegCurryPrice, setVegCurryPrice] = useState("80");
-
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/merchant/get_menu.php", { credentials: "include" });
-      const data = await res.json();
-      if (data.ok) setFoods(data.foods || []);
+      const [menuRes, portionsRes, settingsRes] = await Promise.all([
+        fetch("/api/merchant/get_menu.php", { credentials: "include" }),
+        fetch("/api/merchant/get_portions.php", { credentials: "include" }),
+        fetch("/api/merchant/get_settings.php", { credentials: "include" })
+      ]);
+
+      const menuData = await menuRes.json();
+      const portionsData = await portionsRes.json();
+      const settingsData = await settingsRes.json();
+
+      if (menuData.ok) setFoods(menuData.foods || []);
+      if (portionsData.ok) setPortions(portionsData.portions || []);
+      if (settingsData.ok) {
+        setVegCurryPrice(settingsData.veg_curry_price || "");
+        setFreeVegCurriesCount(settingsData.free_veg_curries_count || 0);
+      }
     } catch (err) {
-      toast.error("Failed to load menu");
+      toast.error("Failed to load menu data");
     } finally {
       setLoading(false);
     }
@@ -237,6 +263,8 @@ const MenuPricing = () => {
 
     if (!isEdit) {
       payload.food_type = editingFood?.food_type || "curry";
+    } else {
+      payload.id = editingFood.id;
     }
 
     const endpoint = isEdit ? "/api/merchant/update_food.php" : "/api/merchant/add_food.php";
@@ -275,7 +303,10 @@ const MenuPricing = () => {
         toast.success("Deleted!");
         loadMenu();
       } else toast.error(data.error || "Delete failed");
-    } catch { }
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Delete failed: " + err.message);
+    }
     finally { setDeletingFood(null); }
   };
 
@@ -285,6 +316,28 @@ const MenuPricing = () => {
     main_meal: filtered.filter(f => f.food_type === "main_meal"),
     curry: filtered.filter(f => f.food_type === "curry"),
     gravy: filtered.filter(f => f.food_type === "gravy")
+  };
+
+  const saveCurrySettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch("/api/merchant/settings.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          veg_curry_price: vegCurryPrice,
+          free_veg_curries_count: freeVegCurriesCount
+        })
+      });
+      const data = await res.json();
+      if (data.ok) toast.success("Settings saved!");
+      else toast.error(data.error || "Save failed");
+    } catch (err) {
+      toast.error("Network error");
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   const renderPriceDisplay = (food) => {
@@ -297,8 +350,8 @@ const MenuPricing = () => {
     if (food.food_type === "curry" && food.is_divisible == 1) {
       return (
         <div className="text-sm space-y-1">
-          {["Full", "Half", "Quarter"].map(p => food.prices?.[p] && (
-            <div key={p}>{p}: ₹{food.prices[p]}</div>
+          {portions.map(p => food.prices?.[p.name] && (
+            <div key={p.id}>{p.name}: ₹{food.prices[p.name]}</div>
           ))}
           <div className="text-green-600 font-semibold">Extra Piece: ₹{food.extra_piece_price}</div>
         </div>
@@ -306,8 +359,8 @@ const MenuPricing = () => {
     }
     return (
       <div className="text-sm space-y-1">
-        {["Full", "Half", "Quarter"].map(p => food.prices?.[p] && (
-          <div key={p}>{p}: ₹{food.prices[p]}</div>
+        {portions.map(p => food.prices?.[p.name] && (
+          <div key={p.id}>{p.name}: ₹{food.prices[p.name]}</div>
         ))}
       </div>
     );
@@ -371,19 +424,46 @@ const MenuPricing = () => {
               </Button>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-xl p-5 flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-green-800">All Vegetarian Curries</p>
-                <p className="text-sm text-green-700">Same price for every veg curry</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-green-700">₹</span>
-                <Input
-                  type="number"
-                  value={vegCurryPrice}
-                  onChange={e => setVegCurryPrice(e.target.value)}
-                  className="w-24 text-2xl font-bold text-center"
-                />
+            {/* Curries Section */}
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">All Vegetarian Curries</h2>
+                    <p className="text-sm text-gray-500">Set the global price and free allowance for veg curries</p>
+                  </div>
+                  <Button
+                    onClick={saveCurrySettings}
+                    disabled={savingSettings}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    {savingSettings ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <Label>Global Veg Curry Price (₹)</Label>
+                    <Input
+                      type="number"
+                      value={vegCurryPrice}
+                      onChange={(e) => setVegCurryPrice(e.target.value)}
+                      className="mt-1"
+                      placeholder="e.g. 80"
+                    />
+                  </div>
+                  <div>
+                    <Label>Free Veg Curries with Main Meal</Label>
+                    <Input
+                      type="number"
+                      value={freeVegCurriesCount}
+                      onChange={(e) => setFreeVegCurriesCount(e.target.value)}
+                      className="mt-1"
+                      placeholder="e.g. 3"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Number of veg curries included for free</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -444,11 +524,15 @@ const MenuPricing = () => {
             <DialogTitle>
               {editingFood?.id ? "Edit" : "Add"}{" "}
               {editingFood?.food_type === "main_meal" ? "Main Meal" :
-               editingFood?.food_type === "curry" ? "Curry" : "Gravy"}
+                editingFood?.food_type === "curry" ? "Curry" : "Gravy"}
             </DialogTitle>
+            <DialogDescription>
+              Fill in the details below to {editingFood?.id ? "update" : "add"} a food item.
+            </DialogDescription>
           </DialogHeader>
           <FoodForm
             food={editingFood}
+            portions={portions}
             onSave={(data) => handleSave(data, !!editingFood?.id)}
             onClose={() => { setIsModalOpen(false); setEditingFood(null); }}
           />

@@ -1,7 +1,7 @@
 <?php
 // public_html/api/merchant/settings.php
-require_once __DIR__ . '/../db.php';
-require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../helpers.php';
 $pdo = getPDO();
 
 require_login();
@@ -31,6 +31,14 @@ if (array_key_exists('closing_time', $data)) {
     $fields[] = "closing_time = ?";
     $params[] = $data['closing_time'];
 }
+if (array_key_exists('free_veg_curries_count', $data)) {
+    $fields[] = "free_veg_curries_count = ?";
+    $params[] = intval($data['free_veg_curries_count']);
+}
+if (array_key_exists('veg_curry_price', $data)) {
+    $fields[] = "veg_curry_price = ?";
+    $params[] = floatval($data['veg_curry_price']);
+}
 
 if (count($fields) === 0 && empty($data['portions'])) {
     send_json(['ok' => false, 'error' => 'No fields provided'], 400);
@@ -59,7 +67,10 @@ try {
     send_json(['ok' => true, 'message' => 'Settings updated']);
 
 } catch (Exception $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     error_log("settings.php error: " . $e->getMessage());
-    send_json(['ok' => false, 'error' => $e->getMessage()], 500);
+    // For debugging: return the error in JSON
+    send_json(['ok' => false, 'error' => 'Server error: ' . $e->getMessage()], 500);
 }

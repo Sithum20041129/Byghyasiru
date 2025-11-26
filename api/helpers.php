@@ -33,7 +33,7 @@ function start_session_if_needed() {
             'path' => '/',
             'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
             'httponly' => true,
-            'samesite' => 'Lax'
+            'samesite' => 'None'
         ]);
         session_start();
     }
@@ -49,3 +49,41 @@ function require_admin() {
     }
 }
 
+/**
+ * Require login (any role)
+ */
+function require_login() {
+    start_session_if_needed();
+    if (!isset($_SESSION['user_id'])) {
+        send_json(['ok' => false, 'error' => 'Unauthorized'], 401);
+    }
+}
+
+/**
+ * Get logged user role
+ */
+function get_logged_user_role() {
+    start_session_if_needed();
+    return $_SESSION['user_role'] ?? null;
+}
+
+/**
+ * Get logged merchant ID
+ */
+function get_logged_merchant_id($pdo) {
+    start_session_if_needed();
+    if (isset($_SESSION['merchant_id'])) {
+        return $_SESSION['merchant_id'];
+    }
+    // Fallback: try to find merchant_id from user_id if not in session
+    if (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'merchant') {
+        $stmt = $pdo->prepare("SELECT id FROM merchants WHERE user_id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $merchant = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($merchant) {
+            $_SESSION['merchant_id'] = $merchant['id'];
+            return $merchant['id'];
+        }
+    }
+    return null;
+}

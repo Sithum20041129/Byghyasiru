@@ -46,7 +46,13 @@ try {
     foreach ($foods as &$food) {
         $priceStmt = $pdo->prepare("SELECT portion_name, price FROM food_prices WHERE food_id = ?");
         $priceStmt->execute([$food['id']]);
-        $food['portion_prices'] = $priceStmt->fetchAll(PDO::FETCH_ASSOC);
+        $portionPrices = $priceStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $food['prices'] = [];
+        foreach ($portionPrices as $pp) {
+            $food['prices'][$pp['portion_name']] = $pp['price'];
+        }
+        $food['portion_prices'] = $portionPrices;
     }
 
     send_json(['ok' => true, 'foods' => $foods]);

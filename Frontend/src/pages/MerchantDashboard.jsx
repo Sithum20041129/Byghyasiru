@@ -19,17 +19,18 @@ const MerchantDashboard = () => {
   const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth check
     if (!user || user.role !== 'merchant') {
       navigate('/login');
       return;
     }
     loadOrders();
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const loadOrders = async () => {
     setLoading(true);

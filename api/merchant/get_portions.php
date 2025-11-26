@@ -10,7 +10,7 @@ if (get_logged_user_role() !== 'merchant') send_json(['ok' => false, 'error' => 
 $merchant_id = get_logged_merchant_id($pdo);
 
 try {
-    $stmt = $pdo->prepare("SELECT id, name FROM portion_categories WHERE merchant_id = ? ORDER BY id ASC");
+    $stmt = $pdo->prepare("SELECT id, portion_name as name FROM merchant_portions WHERE merchant_id = ? ORDER BY id ASC");
     $stmt->execute([$merchant_id]);
     $portions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     send_json(['ok' => true, 'portions' => $portions]);

@@ -38,11 +38,13 @@ const OrderPage = () => {
         throw new Error(data.message || `Failed with status ${res.status}`);
       }
 
+      console.log("OrderPage: Store data loaded", data); // DEBUG
       setStore(data.store);
       setSettings(data.settings || {});
       setFoods(data.foods || []);
 
       if (data.settings && (!data.settings.isOpen || !data.settings.acceptingOrders)) {
+        console.warn("OrderPage: Store unavailable", data.settings); // DEBUG
         toast({
           title: "Store Unavailable",
           description: !data.settings.isOpen ? "Store is closed." : "Not accepting orders.",
@@ -51,6 +53,7 @@ const OrderPage = () => {
         navigate("/customer");
       }
     } catch (err) {
+      console.error("OrderPage: Error loading store", err); // DEBUG
       toast({ title: "Error", description: err.message, variant: "destructive" });
       navigate("/customer");
     } finally {
@@ -96,17 +99,32 @@ const OrderPage = () => {
     }
 
     // Add curries/gravies
+    let vegCurryCount = 0;
+    const freeVegLimit = settings?.freeVegCurries || 0;
+    const vegPrice = settings?.vegCurryPrice || 0;
+
     Object.entries(selectedCurries).forEach(([id, qty]) => {
       if (qty > 0) {
         const food = foods.find(f => f.id == id);
         if (food) {
-          // Curries usually don't have portion prices in this context, use base price
-          total += (parseFloat(food.price) || 0) * qty;
+          if (food.is_veg == 1) {
+            vegCurryCount += qty;
+          } else {
+            // Non-veg curries always charged
+            total += (parseFloat(food.price) || 0) * qty;
+          }
         }
       }
     });
+
+    // Calculate veg curry cost
+    if (vegCurryCount > freeVegLimit) {
+      const chargeableVeg = vegCurryCount - freeVegLimit;
+      total += chargeableVeg * vegPrice;
+    }
+
     return total;
-  }, [selectedMain, selectedPortion, selectedCurries, foods]);
+  }, [selectedMain, selectedPortion, selectedCurries, foods, settings]);
 
   const handlePlaceOrder = async () => {
     if (!selectedMain || !selectedPortion) {
@@ -128,17 +146,45 @@ const OrderPage = () => {
       });
 
       // Add Curries/Gravies
+      let vegCurriesToAdd = [];
+      const freeVegLimit = settings?.freeVegCurries || 0;
+      const vegPrice = settings?.vegCurryPrice || 0;
+
       Object.entries(selectedCurries).forEach(([id, qty]) => {
         if (qty > 0) {
           const food = foods.find(f => f.id == id);
           if (food) {
-            items.push({
-              food_id: food.id,
-              quantity: qty,
-              price: parseFloat(food.price) || 0
-            });
+            if (food.is_veg == 1) {
+              // Collect veg curries to handle quota later
+              for (let i = 0; i < qty; i++) {
+                vegCurriesToAdd.push({
+                  food_id: food.id,
+                  quantity: 1,
+                  price: 0 // Placeholder, will update
+                });
+              }
+            } else {
+              // Non-veg: add directly
+              items.push({
+                food_id: food.id,
+                quantity: qty,
+                price: parseFloat(food.price) || 0
+              });
+            }
           }
         }
+      });
+
+      // Apply pricing to veg curries
+      // Logic: First N are free, rest are charged
+      // We can just set the price for the excess items
+      vegCurriesToAdd.forEach((item, index) => {
+        if (index >= freeVegLimit) {
+          item.price = vegPrice;
+        } else {
+          item.price = 0;
+        }
+        items.push(item);
       });
 
       const res = await fetch("/api/orders/create.php", {
@@ -191,6 +237,11 @@ const OrderPage = () => {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">{store.storeName}</h1>
           <p className="text-gray-600">{store.storeAddress}</p>
+          {settings?.activeMealTime && (
+            <div className="mt-2 inline-block bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+              Now Serving: {settings.activeMealTime}
+            </div>
+          )}
         </div>
 
         <div className="space-y-8">
@@ -264,6 +315,11 @@ const OrderPage = () => {
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">3</span>
               Add Curries & Sides
+              {settings?.freeVegCurries > 0 && (
+                <span className="ml-3 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  First {settings.freeVegCurries} Veg Curries Free!
+                </span>
+              )}
             </h2>
 
             {!canSelectSides && (
@@ -283,7 +339,24 @@ const OrderPage = () => {
                   <h3 className="font-semibold text-gray-700 mb-3">{group.title}</h3>
                   <div className="space-y-2">
                     {group.items.map(food => (
-                      <div key={food.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                      <div
+                        key={food.id}
+                        onClick={() => {
+                          const current = selectedCurries[food.id] || 0;
+                          if (current > 0) {
+                            // Deselect
+                            setSelectedCurries(prev => {
+                              const { [food.id]: _, ...rest } = prev;
+                              return rest;
+                            });
+                          } else {
+                            // Select (default qty 1)
+                            setSelectedCurries(prev => ({ ...prev, [food.id]: 1 }));
+                          }
+                        }}
+                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${selectedCurries[food.id] ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-orange-200 hover:bg-gray-50'
+                          }`}
+                      >
                         <div>
                           <div className="font-medium flex items-center gap-2">
                             {food.name}
@@ -292,20 +365,29 @@ const OrderPage = () => {
                           <div className="text-sm text-gray-500">Rs {(parseFloat(food.price) || 0).toFixed(2)}</div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <Button
-                            variant="outline" size="icon" className="h-8 w-8"
-                            onClick={() => toggleCurry(food.id, false)}
-                            disabled={!selectedCurries[food.id]}
-                          >
-                            -
-                          </Button>
-                          <span className="w-6 text-center font-medium">{selectedCurries[food.id] || 0}</span>
-                          <Button
-                            variant="outline" size="icon" className="h-8 w-8"
-                            onClick={() => toggleCurry(food.id, true)}
-                          >
-                            +
-                          </Button>
+                          {selectedCurries[food.id] ? (
+                            food.is_divisible == 1 ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="outline" size="icon" className="h-8 w-8 bg-white"
+                                  onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, false); }}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-6 text-center font-medium">{selectedCurries[food.id]}</span>
+                                <Button
+                                  variant="outline" size="icon" className="h-8 w-8 bg-white"
+                                  onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, true); }}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            ) : (
+                              <Check className="w-5 h-5 text-orange-600" />
+                            )
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                          )}
                         </div>
                       </div>
                     ))}

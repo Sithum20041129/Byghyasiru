@@ -234,7 +234,6 @@ const MenuPricing = () => {
   const [freeVegCurriesCount, setFreeVegCurriesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [selectedMealTime, setSelectedMealTime] = useState("lunch");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [deletingFood, setDeletingFood] = useState(null);
@@ -271,7 +270,7 @@ const MenuPricing = () => {
   const handleSave = async (formData, isEdit) => {
     const payload = {
       ...formData,
-      meal_time: selectedMealTime,
+      meal_time: 'all', // Universal meal time
     };
 
     if (!isEdit) {
@@ -323,12 +322,10 @@ const MenuPricing = () => {
     finally { setDeletingFood(null); }
   };
 
-  const filtered = foods.filter(f => f.meal_time === selectedMealTime);
-
   const sections = {
-    main_meal: filtered.filter(f => f.food_type === "main_meal"),
-    curry: filtered.filter(f => f.food_type === "curry"),
-    gravy: filtered.filter(f => f.food_type === "gravy")
+    main_meal: foods.filter(f => f.food_type === "main_meal"),
+    curry: foods.filter(f => f.food_type === "curry"),
+    gravy: foods.filter(f => f.food_type === "gravy")
   };
 
   const saveCurrySettings = async () => {
@@ -422,17 +419,7 @@ const MenuPricing = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-4xl font-bold text-gray-800">Menu & Pricing</h1>
         <div className="flex items-center gap-4">
-          <Label className="text-lg font-medium">Menu for:</Label>
-          <Select value={selectedMealTime} onValueChange={setSelectedMealTime}>
-            <SelectTrigger className="w-56 text-lg">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="breakfast">Breakfast</SelectItem>
-              <SelectItem value="lunch">Lunch</SelectItem>
-              <SelectItem value="dinner">Dinner</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Meal time selection removed for universal menu */}
         </div>
       </div>
 

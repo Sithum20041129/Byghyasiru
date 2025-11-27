@@ -24,19 +24,43 @@ if (!$storeId) {
 
 try {
     // 🔹 Store info
-    $stmt = $pdo->prepare("
-        SELECT m.id, m.store_name, m.store_address, m.website_charge,
-               m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
-               m.university_id, un.name AS university_name,
-               u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
-        FROM merchants m
-        JOIN users u ON m.user_id = u.id
-        LEFT JOIN universities un ON m.university_id = un.id
-        WHERE m.id = ? AND m.approved = 1
-        LIMIT 1
-    ");
-    $stmt->execute([$storeId]);
-    $store = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->prepare("
+            SELECT m.id, m.store_name, m.store_address, m.website_charge,
+                   m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
+                   m.free_veg_curries_count, m.veg_curry_price, m.active_meal_time,
+                   m.university_id, un.name AS university_name,
+                   u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
+            FROM merchants m
+            JOIN users u ON m.user_id = u.id
+            LEFT JOIN universities un ON m.university_id = un.id
+            WHERE m.id = ? AND m.approved = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$storeId]);
+        $store = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Fallback: exclude new columns if they don't exist
+        $stmt = $pdo->prepare("
+            SELECT m.id, m.store_name, m.store_address, m.website_charge,
+                   m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
+                   m.university_id, un.name AS university_name,
+                   u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
+            FROM merchants m
+            JOIN users u ON m.user_id = u.id
+            LEFT JOIN universities un ON m.university_id = un.id
+            WHERE m.id = ? AND m.approved = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$storeId]);
+        $store = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($store) {
+            $store['free_veg_curries_count'] = 0;
+            $store['veg_curry_price'] = 0;
+            $store['active_meal_time'] = 'Lunch'; // Default
+        }
+    }
 
     if (!$store) {
         send_json(["success" => false, "message" => "Store not found"], 404);
@@ -44,14 +68,32 @@ try {
     }
 
     // 🔹 Foods for this store
-    $foodsStmt = $pdo->prepare("
-        SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg
-        FROM foods f
-        WHERE f.merchant_id = ? AND f.available = 1
-        ORDER BY f.food_type DESC, f.name ASC
-    ");
-    $foodsStmt->execute([$storeId]);
-    $foods = $foodsStmt->fetchAll(PDO::FETCH_ASSOC);
+    // Use try-catch to handle missing is_divisible column in some environments
+    try {
+        $foodsStmt = $pdo->prepare("
+            SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg, f.is_divisible
+            FROM foods f
+            WHERE f.merchant_id = ? AND f.available = 1
+            ORDER BY f.food_type DESC, f.name ASC
+        ");
+        $foodsStmt->execute([$storeId]);
+        $foods = $foodsStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Fallback: exclude is_divisible
+        $foodsStmt = $pdo->prepare("
+            SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg
+            FROM foods f
+            WHERE f.merchant_id = ? AND f.available = 1
+            ORDER BY f.food_type DESC, f.name ASC
+        ");
+        $foodsStmt->execute([$storeId]);
+        $foods = $foodsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Add default is_divisible = 0
+        foreach ($foods as &$f) {
+            $f['is_divisible'] = 0;
+        }
+    }
 
     // 🔹 Fetch portion prices for each food
     foreach ($foods as &$food) {
@@ -76,7 +118,10 @@ try {
         "isOpen" => (bool)$store['is_open'],
         "acceptingOrders" => (bool)$store['accepting_orders'],
         "orderLimit" => (int)$store['order_limit'],
-        "closingTime" => $store['closing_time']
+        "closingTime" => $store['closing_time'],
+        "freeVegCurries" => (int)($store['free_veg_curries_count'] ?? 0),
+        "vegCurryPrice" => (float)($store['veg_curry_price'] ?? 0),
+        "activeMealTime" => $store['active_meal_time'] ?? 'Lunch'
     ];
 
     // 🔹 Final response

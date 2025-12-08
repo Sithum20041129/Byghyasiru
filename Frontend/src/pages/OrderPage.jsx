@@ -69,20 +69,33 @@ const OrderPage = () => {
     loadStore();
   }, [user, loadStore, navigate]);
 
+  // Helper to identify gravies
+  const isGravy = useCallback((food) => {
+    if (!food) return false;
+    const type = (food.food_type || '').toLowerCase();
+    const category = (food.category || '').toLowerCase();
+    return type.includes('gravy') || type.includes('sauce') || category.includes('gravy') || category.includes('sauce');
+  }, []);
+
   // Group foods
   const { mainMeals, curries, gravies, others } = useMemo(() => {
     const groups = { mainMeals: [], curries: [], gravies: [], others: [] };
     foods.forEach(f => {
       // Check both food_type and category, normalize to lowercase
-      const type = (f.food_type || f.category || '').toLowerCase();
+      const type = (f.food_type || '').toLowerCase();
+      const category = (f.category || '').toLowerCase();
+
+      // Helper to check if either field contains a keyword
+      const isType = (keyword) => type.includes(keyword) || category.includes(keyword);
 
       // More flexible matching
-      if (type.includes('main') || type.includes('rice') || type.includes('biryani') || type.includes('fried') || type.includes('kottu')) {
+      if (isType('main') || isType('rice') || isType('biryani') || isType('fried') || isType('kottu')) {
         groups.mainMeals.push(f);
-      } else if (type.includes('curry')) {
-        groups.curries.push(f);
-      } else if (type.includes('gravy') || type.includes('sauce')) {
+      } else if (isType('gravy') || isType('sauce')) {
+        // Check gravies BEFORE curries to ensure they are categorized correctly
         groups.gravies.push(f);
+      } else if (isType('curry')) {
+        groups.curries.push(f);
       } else {
         groups.others.push(f);
       }
@@ -90,28 +103,102 @@ const OrderPage = () => {
     return groups;
   }, [foods]);
 
+  // 🔹 Identify Primary Non-Veg Curry (Most Expensive)
+  const primaryNonVegCurry = useMemo(() => {
+    if (!selectedPortion) return null;
+
+    const nonVegFoods = Object.keys(selectedCurries)
+      .map(id => foods.find(f => f.id == id))
+      .filter(f => f && f.is_veg == 0 && !isGravy(f) && selectedCurries[f.id] > 0);
+
+    if (nonVegFoods.length === 0) return null;
+
+    // Sort by portion price (descending)
+    // If portion price is missing, fallback to base price
+    return nonVegFoods.sort((a, b) => {
+      const priceA = parseFloat(a.prices?.[selectedPortion] || a.price || 0);
+      const priceB = parseFloat(b.prices?.[selectedPortion] || b.price || 0);
+      return priceB - priceA;
+    })[0];
+  }, [selectedCurries, foods, selectedPortion, isGravy]);
+
+  // 🔹 Pricing Helper Function
+  const calculateItemPrice = useCallback((food, qty, isPrimary, settings) => {
+    if (!food || qty <= 0) return 0;
+    const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
+
+    // DEBUG LOG
+    console.log(`Pricing Debug [${food.name}]:`, {
+      qty,
+      isPrimary,
+      isDivisible: food.is_divisible,
+      price: food.price,
+      extraPrice: food.extra_piece_price,
+      vegPrice
+    });
+
+    if (isGravy(food)) return 0; // Gravies are free
+
+    if (food.is_veg == 1) {
+      return 0;
+    }
+
+    // Non-Veg Logic
+    if (isPrimary) {
+      // Primary Curry
+      // 1st piece: Covered by Portion Price
+      // Extra pieces: Charged at OWN price (or extra_piece_price) if divisible
+      if (food.is_divisible == 1 && qty > 1) {
+        const extraPrice = parseFloat(food.extra_piece_price || food.price || 0);
+        return (qty - 1) * extraPrice;
+      }
+      return 0;
+    } else {
+      // Secondary Curry
+      if (food.is_divisible == 1) {
+        // Divisible: Charged at OWN price (or extra_piece_price)
+        const itemPrice = parseFloat(food.extra_piece_price || food.price || 0);
+        return qty * itemPrice;
+      } else {
+        // Non-Divisible: Charged at VEG CURRY price
+        return qty * vegPrice;
+      }
+    }
+  }, [isGravy]);
+
   // Calculate Total
   const totalPrice = useMemo(() => {
     let total = 0;
+    const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
+
+    // 1. Calculate Base Meal Price
     if (selectedMain && selectedPortion) {
-      // Main meal price based on portion
-      total += parseFloat(selectedMain.prices?.[selectedPortion] || selectedMain.price || 0);
+      if (primaryNonVegCurry) {
+        // If Non-Veg Curry selected: Use PRIMARY curry's portion price
+        const portionPrice = primaryNonVegCurry.prices?.[selectedPortion];
+        total += parseFloat(portionPrice || primaryNonVegCurry.price || 0);
+      } else {
+        // Vegetarian: Use Main Meal portion price
+        total += parseFloat(selectedMain.prices?.[selectedPortion] || selectedMain.price || 0);
+      }
     }
 
-    // Add curries/gravies
+    // 2. Add OTHER curries/gravies
     let vegCurryCount = 0;
     const freeVegLimit = settings?.freeVegCurries || 0;
-    const vegPrice = settings?.vegCurryPrice || 0;
 
     Object.entries(selectedCurries).forEach(([id, qty]) => {
       if (qty > 0) {
         const food = foods.find(f => f.id == id);
         if (food) {
-          if (food.is_veg == 1) {
+          if (isGravy(food)) {
+            // Gravies are free
+          } else if (food.is_veg == 1) {
             vegCurryCount += qty;
           } else {
-            // Non-veg curries always charged
-            total += (parseFloat(food.price) || 0) * qty;
+            // Non-Veg Curries
+            const isPrimary = food.id === primaryNonVegCurry?.id;
+            total += calculateItemPrice(food, qty, isPrimary, settings);
           }
         }
       }
@@ -124,7 +211,7 @@ const OrderPage = () => {
     }
 
     return total;
-  }, [selectedMain, selectedPortion, selectedCurries, foods, settings]);
+  }, [selectedMain, selectedPortion, selectedCurries, foods, settings, primaryNonVegCurry, isGravy, calculateItemPrice]);
 
   const handlePlaceOrder = async () => {
     if (!selectedMain || !selectedPortion) {
@@ -136,25 +223,46 @@ const OrderPage = () => {
       setLoading(true);
 
       const items = [];
+      const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
+
+      // Determine Base Prices
+      let mainMealPrice = 0;
+      let primaryNonVegPortionPrice = 0;
+
+      if (primaryNonVegCurry) {
+        // Main meal is free/cancelled out
+        mainMealPrice = 0;
+        // Primary Non-Veg Curry takes the portion price
+        primaryNonVegPortionPrice = parseFloat(primaryNonVegCurry.prices?.[selectedPortion] || primaryNonVegCurry.price || 0);
+      } else {
+        // Standard Vegetarian Pricing
+        mainMealPrice = parseFloat(selectedMain.prices?.[selectedPortion] || selectedMain.price || 0);
+      }
 
       // Add Main Meal
       items.push({
         food_id: selectedMain.id,
         quantity: 1,
-        price: parseFloat(selectedMain.prices?.[selectedPortion] || selectedMain.price || 0),
+        price: mainMealPrice,
         portion: selectedPortion
       });
 
       // Add Curries/Gravies
       let vegCurriesToAdd = [];
       const freeVegLimit = settings?.freeVegCurries || 0;
-      const vegPrice = settings?.vegCurryPrice || 0;
 
       Object.entries(selectedCurries).forEach(([id, qty]) => {
         if (qty > 0) {
           const food = foods.find(f => f.id == id);
           if (food) {
-            if (food.is_veg == 1) {
+            if (isGravy(food)) {
+              // Gravies are free
+              items.push({
+                food_id: food.id,
+                quantity: qty,
+                price: 0
+              });
+            } else if (food.is_veg == 1) {
               // Collect veg curries to handle quota later
               for (let i = 0; i < qty; i++) {
                 vegCurriesToAdd.push({
@@ -164,12 +272,50 @@ const OrderPage = () => {
                 });
               }
             } else {
-              // Non-veg: add directly
-              items.push({
-                food_id: food.id,
-                quantity: qty,
-                price: parseFloat(food.price) || 0
-              });
+              // Non-Veg Curries
+              const isPrimary = food.id === primaryNonVegCurry?.id;
+
+              if (isPrimary) {
+                // Primary Curry
+                // 1st piece: Portion Price
+                items.push({
+                  food_id: food.id,
+                  quantity: 1,
+                  price: primaryNonVegPortionPrice
+                });
+                // Extra pieces: Calculated by helper (if divisible)
+                if (food.is_divisible == 1 && qty > 1) {
+                  // We need to add the extra pieces as a separate item or just one item with total price?
+                  // Usually better to separate for clarity, or aggregate.
+                  // The helper returns the TOTAL price for the extra pieces.
+                  // Let's add them as separate line items for clarity if possible, or just one entry.
+                  // Existing logic separated them. Let's keep that pattern but use helper logic to be sure.
+
+                  // Actually, the helper returns the TOTAL cost for the extra pieces.
+                  // So if we have 2 extra pieces at 50 each, helper returns 100.
+                  // We should add an item with quantity (qty-1) and price (food.price).
+
+                  items.push({
+                    food_id: food.id,
+                    quantity: qty - 1,
+                    price: parseFloat(food.price) || 0
+                  });
+                }
+              } else {
+                // Secondary Curry
+                // We can use the helper to determine the unit price effectively.
+                // Helper returns TOTAL price for the qty.
+                // So unit price = Total / qty.
+
+                const totalForSecondary = calculateItemPrice(food, qty, false, settings);
+                const unitPrice = totalForSecondary / qty;
+
+                items.push({
+                  food_id: food.id,
+                  quantity: qty,
+                  price: unitPrice
+                });
+              }
             }
           }
         }
@@ -177,7 +323,6 @@ const OrderPage = () => {
 
       // Apply pricing to veg curries
       // Logic: First N are free, rest are charged
-      // We can just set the price for the excess items
       vegCurriesToAdd.forEach((item, index) => {
         if (index >= freeVegLimit) {
           item.price = vegPrice;
@@ -210,9 +355,16 @@ const OrderPage = () => {
   };
 
   const toggleCurry = (id, increment) => {
+    const food = foods.find(f => f.id === id);
+    if (!food) return;
+
     setSelectedCurries(prev => {
       const current = prev[id] || 0;
       const next = Math.max(0, current + (increment ? 1 : -1));
+
+      // If non-divisible, max is 1
+      if (food.is_divisible == 0 && next > 1) return prev;
+
       if (next === 0) {
         const { [id]: _, ...rest } = prev;
         return rest;
@@ -282,18 +434,30 @@ const OrderPage = () => {
               </h2>
               <RadioGroup value={selectedPortion} onValueChange={setSelectedPortion} className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {selectedMain.portion_prices && selectedMain.portion_prices.length > 0 ? (
-                  selectedMain.portion_prices.map((pp) => (
-                    <div key={pp.portion_name}>
-                      <RadioGroupItem value={pp.portion_name} id={`portion-${pp.portion_name}`} className="peer sr-only" />
-                      <Label
-                        htmlFor={`portion-${pp.portion_name}`}
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:text-orange-600 cursor-pointer"
-                      >
-                        <span className="font-semibold">{pp.portion_name}</span>
-                        <span className="text-sm mt-1">Rs {parseFloat(pp.price).toFixed(2)}</span>
-                      </Label>
-                    </div>
-                  ))
+                  selectedMain.portion_prices.map((pp) => {
+                    // Determine display price
+                    let displayPrice = parseFloat(pp.price);
+                    if (primaryNonVegCurry) {
+                      // Use non-veg curry portion price if available
+                      const nvPrice = primaryNonVegCurry.prices?.[pp.portion_name];
+                      if (nvPrice !== undefined) {
+                        displayPrice = parseFloat(nvPrice);
+                      }
+                    }
+
+                    return (
+                      <div key={pp.portion_name}>
+                        <RadioGroupItem value={pp.portion_name} id={`portion-${pp.portion_name}`} className="peer sr-only" />
+                        <Label
+                          htmlFor={`portion-${pp.portion_name}`}
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:text-orange-600 cursor-pointer"
+                        >
+                          <span className="font-semibold">{pp.portion_name}</span>
+                          <span className="text-sm mt-1">Rs {displayPrice.toFixed(2)}</span>
+                        </Label>
+                      </div>
+                    );
+                  })
                 ) : (
                   <div>
                     <RadioGroupItem value="Standard" id="portion-standard" className="peer sr-only" />
@@ -338,59 +502,88 @@ const OrderPage = () => {
                 <div key={group.title}>
                   <h3 className="font-semibold text-gray-700 mb-3">{group.title}</h3>
                   <div className="space-y-2">
-                    {group.items.map(food => (
-                      <div
-                        key={food.id}
-                        onClick={() => {
-                          const current = selectedCurries[food.id] || 0;
-                          if (current > 0) {
-                            // Deselect
-                            setSelectedCurries(prev => {
-                              const { [food.id]: _, ...rest } = prev;
-                              return rest;
-                            });
+                    {group.items.map(food => {
+                      // Determine Price to Display
+                      let priceDisplay = `Rs ${(parseFloat(food.price) || 0).toFixed(2)}`;
+
+                      if (isGravy(food)) {
+                        priceDisplay = "Free";
+                      } else if (food.is_veg == 1) {
+                        // Veg Curry
+                        // Complex to show exact price because it depends on count.
+                        // Just show standard price? Or "Free / Rs X"?
+                        // Let's keep standard price for now.
+                      } else {
+                        // Non-Veg Curry
+                        if (food.id === primaryNonVegCurry?.id) {
+                          priceDisplay = <span className="text-orange-600 font-medium">Included in Meal Price</span>;
+                        } else {
+                          // Secondary
+                          if (food.is_divisible == 1) {
+                            // Own Price
+                            priceDisplay = `Rs ${(parseFloat(food.price) || 0).toFixed(2)}`;
                           } else {
-                            // Select (default qty 1)
-                            setSelectedCurries(prev => ({ ...prev, [food.id]: 1 }));
+                            // Veg Curry Price
+                            const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
+                            priceDisplay = `Rs ${vegPrice.toFixed(2)}`;
                           }
-                        }}
-                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${selectedCurries[food.id] ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-orange-200 hover:bg-gray-50'
-                          }`}
-                      >
-                        <div>
-                          <div className="font-medium flex items-center gap-2">
-                            {food.name}
-                            {food.is_veg == 1 && <Badge variant="outline" className="text-green-600 border-green-200 text-[10px]">Veg</Badge>}
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={food.id}
+                          onClick={() => {
+                            const current = selectedCurries[food.id] || 0;
+                            if (current > 0) {
+                              // Deselect
+                              toggleCurry(food.id, false);
+                            } else {
+                              // Select
+                              toggleCurry(food.id, true);
+                            }
+                          }}
+                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${selectedCurries[food.id] ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-orange-200 hover:bg-gray-50'
+                            }`}
+                        >
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              {food.name}
+                              {food.is_veg == 1 && <Badge variant="outline" className="text-green-600 border-green-200 text-[10px]">Veg</Badge>}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {priceDisplay}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">Rs {(parseFloat(food.price) || 0).toFixed(2)}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {selectedCurries[food.id] ? (
-                            food.is_divisible == 1 ? (
-                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  variant="outline" size="icon" className="h-8 w-8 bg-white"
-                                  onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, false); }}
-                                >
-                                  -
-                                </Button>
-                                <span className="w-6 text-center font-medium">{selectedCurries[food.id]}</span>
-                                <Button
-                                  variant="outline" size="icon" className="h-8 w-8 bg-white"
-                                  onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, true); }}
-                                >
-                                  +
-                                </Button>
-                              </div>
+                          <div className="flex items-center gap-3">
+                            {selectedCurries[food.id] ? (
+                              food.is_divisible == 1 ? (
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="outline" size="icon" className="h-8 w-8 bg-white"
+                                    onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, false); }}
+                                  >
+                                    -
+                                  </Button>
+                                  <span className="w-6 text-center font-medium">{selectedCurries[food.id]}</span>
+                                  <Button
+                                    variant="outline" size="icon" className="h-8 w-8 bg-white"
+                                    onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, true); }}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Check className="w-5 h-5 text-orange-600" />
+                              )
                             ) : (
-                              <Check className="w-5 h-5 text-orange-600" />
-                            )
-                          ) : (
-                            <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
-                          )}
+                              <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })
+                    }
                   </div>
                 </div>
               ))}

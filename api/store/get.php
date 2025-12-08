@@ -71,7 +71,7 @@ try {
     // Use try-catch to handle missing is_divisible column in some environments
     try {
         $foodsStmt = $pdo->prepare("
-            SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg, f.is_divisible
+            SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg, f.is_divisible, f.extra_piece_price
             FROM foods f
             WHERE f.merchant_id = ? AND f.available = 1
             ORDER BY f.food_type DESC, f.name ASC

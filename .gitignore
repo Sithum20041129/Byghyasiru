@@ -1,4 +1,32 @@
+# --- Dependencies ---
 node_modules/
+vendor/
+
+# --- Build Outputs (React/Vite) ---
 dist/
+build/
+
+# --- Environment Variables & Secrets (CRITICAL) ---
 .env
+.env.local
+.env.*.local
 api/config.php
+
+# --- System & Editor Files ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Replit & Development Cache ---
+.local/
+.cache/
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+php_errors.log
+error_log
+debug.log

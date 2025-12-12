@@ -8,13 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -33,39 +26,74 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-// Reusable Food Card
+// --- 1. NEW ATTRACTIVE FOOD CARD COMPONENT ---
 const FoodCard = ({ food, onEdit, onDelete, onToggleAvailability, display }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-md border hover:shadow-xl transition">
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-200 group">
     <div className="flex justify-between items-start mb-4">
       <div>
-        <h3 className="text-xl font-bold">{food.name}</h3>
-        {food.food_type === "curry" && food.is_veg == 1 && <Badge className="mt-2" variant="success">VEG</Badge>}
-        {food.food_type === "curry" && food.is_veg == 0 && <Badge className="mt-2" variant="destructive">NON-VEG</Badge>}
+        <h3 className="text-xl font-bold text-gray-800 group-hover:text-orange-600 transition-colors">
+          {food.name}
+        </h3>
+
+        {/* Colorful Badges */}
+        {food.food_type === "curry" && food.is_veg == 1 && (
+          <Badge className="mt-2 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-none">
+            🥦 VEG
+          </Badge>
+        )}
+        {food.food_type === "curry" && food.is_veg == 0 && (
+          <Badge className="mt-2 bg-rose-100 text-rose-800 hover:bg-rose-200 border-none">
+            🍗 NON-VEG
+          </Badge>
+        )}
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onEdit}>Edit</Button>
-        <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
+
+      {/* Modern Soft Buttons (Edit/Delete) */}
+      <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onEdit}
+          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+        >
+          Edit
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+        >
+          Delete
+        </Button>
       </div>
     </div>
-    <div className="flex items-center justify-between mb-4">
+
+    {/* Availability Toggle */}
+    <div className="flex items-center justify-between mb-4 bg-gray-50 p-3 rounded-lg">
       <div className="flex items-center space-x-2">
         <Switch
           id={`availability-${food.id}`}
           checked={food.is_available == 1}
           onCheckedChange={(checked) => onToggleAvailability(food, checked)}
+          className="data-[state=checked]:bg-green-600"
         />
-        <Label htmlFor={`availability-${food.id}`} className="cursor-pointer">
-          {food.is_available == 1 ? "Available" : "Unavailable"}
+        <Label
+          htmlFor={`availability-${food.id}`}
+          className={`cursor-pointer font-medium ${food.is_available == 1 ? "text-green-700" : "text-gray-400"}`}
+        >
+          {food.is_available == 1 ? "In Stock" : "Sold Out"}
         </Label>
       </div>
     </div>
-    <div className="pt-4 border-t">
+
+    <div className="pt-4 border-t border-dashed border-gray-200">
       {display}
     </div>
-  </div >
+  </div>
 );
 
-// Updated Food Form - Fixed Checkbox & Extra Piece Logic
+// --- 2. EXISTING FORM COMPONENT (No Changes Needed Here) ---
 const FoodForm = ({ food, portions, onSave, onClose }) => {
   const isEdit = !!food?.id;
   const isMainMeal = food?.food_type === "main_meal";
@@ -206,7 +234,7 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
       {/* Extra Piece Price Field */}
       {showExtraPieceOption && isDivisible && (
         <div className="ml-8 -mt-2">
-          <Label>Extra Piece Price (₹)</Label>
+          <Label>Extra Piece Price (RS)</Label>
           <Input
             type="number"
             value={extraPiecePrice}
@@ -227,6 +255,7 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
   );
 };
 
+// --- 3. MAIN PAGE COMPONENT ---
 const MenuPricing = () => {
   const [foods, setFoods] = useState([]);
   const [portions, setPortions] = useState([]);
@@ -238,7 +267,7 @@ const MenuPricing = () => {
   const [editingFood, setEditingFood] = useState(null);
   const [deletingFood, setDeletingFood] = useState(null);
 
-  // Global veg curry price
+  // Load Data
   const loadMenu = async () => {
     setLoading(true);
     try {
@@ -322,11 +351,16 @@ const MenuPricing = () => {
     finally { setDeletingFood(null); }
   };
 
+  // --- DATA SEPARATION LOGIC ---
   const sections = {
     main_meal: foods.filter(f => f.food_type === "main_meal"),
     curry: foods.filter(f => f.food_type === "curry"),
     gravy: foods.filter(f => f.food_type === "gravy")
   };
+
+  // Create separated lists for Veg and Non-Veg
+  const vegCurries = sections.curry.filter(c => c.is_veg == 1);
+  const nonVegCurries = sections.curry.filter(c => c.is_veg == 0);
 
   const saveCurrySettings = async () => {
     setSavingSettings(true);
@@ -351,11 +385,9 @@ const MenuPricing = () => {
   };
 
   const toggleAvailability = async (food, isAvailable) => {
-    // Optimistic update
     setFoods(prev => prev.map(f =>
       f.id === food.id ? { ...f, is_available: isAvailable ? 1 : 0 } : f
     ));
-
     try {
       const res = await fetch("/api/merchant/update_food_availability.php", {
         method: "POST",
@@ -363,28 +395,14 @@ const MenuPricing = () => {
         credentials: "include",
         body: JSON.stringify({ id: food.id, is_available: isAvailable })
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server returned ${res.status} ${res.statusText}. Response: ${text.substring(0, 100)}...`);
-      }
-
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
-
-      if (!data.ok) {
-        // Revert on failure
-        setFoods(prev => prev.map(f =>
-          f.id === food.id ? { ...f, is_available: !isAvailable ? 1 : 0 } : f
-        ));
-        toast.error(data.error || "Failed to update availability");
-      }
+      if (!data.ok) throw new Error(data.error);
     } catch (err) {
-      console.error("Toggle availability error:", err);
-      // Revert on error
       setFoods(prev => prev.map(f =>
         f.id === food.id ? { ...f, is_available: !isAvailable ? 1 : 0 } : f
       ));
-      toast.error("Network error");
+      toast.error("Failed to update availability");
     }
   };
 
@@ -415,30 +433,33 @@ const MenuPricing = () => {
   };
 
   return (
-    <div className="space-y-10 p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold text-gray-800">Menu & Pricing</h1>
-        <div className="flex items-center gap-4">
-          {/* Meal time selection removed for universal menu */}
-        </div>
+    <div className="space-y-10 p-6 max-w-7xl mx-auto bg-gray-50/50 min-h-screen">
+      <div className="flex justify-between items-center border-b pb-6 bg-white -mx-6 px-6 sticky top-0 z-10 shadow-sm">
+        <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">Menu & Pricing</h1>
       </div>
 
       {loading ? (
-        <p className="text-center py-20 text-gray-500">Loading your menu...</p>
+        <p className="text-center py-20 text-gray-500 animate-pulse">Loading your menu...</p>
       ) : (
         <div className="space-y-12">
 
-          {/* MAIN MEALS */}
+          {/* --- MAIN MEALS SECTION --- */}
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Main Meals</h2>
-              <Button onClick={() => { setEditingFood({ food_type: "main_meal" }); setIsModalOpen(true); }}>
-                Add Main Meal
+              <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-orange-500 pl-3">Main Meals</h2>
+              <Button
+                onClick={() => { setEditingFood({ food_type: "main_meal" }); setIsModalOpen(true); }}
+                className="bg-orange-600 hover:bg-orange-700 text-white shadow-md hover:shadow-lg transition-all"
+              >
+                + Add Main Meal
               </Button>
             </div>
-            <div className="grid gap-5">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {sections.main_meal.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No main meals yet</div>
+                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500 col-span-full">
+                  No main meals yet
+                </div>
               ) : (
                 sections.main_meal.map(food => (
                   <FoodCard
@@ -454,93 +475,131 @@ const MenuPricing = () => {
             </div>
           </div>
 
-          {/* CURRIES */}
-          <div className="space-y-6">
+          {/* --- CURRIES SECTION --- */}
+          <div className="space-y-8">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Curries</h2>
-              <Button onClick={() => { setEditingFood({ food_type: "curry" }); setIsModalOpen(true); }}>
-                Add Curry
+              <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-orange-500 pl-3">Curries</h2>
+              <Button
+                onClick={() => { setEditingFood({ food_type: "curry" }); setIsModalOpen(true); }}
+                className="bg-orange-600 hover:bg-orange-700 text-white shadow-md"
+              >
+                + Add Curry
               </Button>
             </div>
 
-            {/* Curries Section */}
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            {/* 1. VEGETARIAN SECTION */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100">
+              <h3 className="text-xl font-bold mb-6 text-orange-800 flex items-center gap-2">
+                🥦 Vegetarian Curries
+              </h3>
+
+              {/* Global Veg Settings Box */}
+              <div className="bg-orange-50/50 p-5 rounded-xl border border-orange-100 mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-800">All Vegetarian Curries</h2>
-                    <p className="text-sm text-gray-500">Set the global price and free allowance for veg curries</p>
+                    <h2 className="text-lg font-bold text-orange-900">Veg Pricing Settings</h2>
+                    <p className="text-sm text-orange-600">Global controls for all veg items</p>
                   </div>
                   <Button
                     onClick={saveCurrySettings}
                     disabled={savingSettings}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    className="bg-orange-600 hover:bg-orange-700 text-white border-none"
                   >
-                    {savingSettings ? "Saving..." : "Save Settings"}
+                    {savingSettings ? "Saving..." : "Save Config"}
                   </Button>
                 </div>
-
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <Label>Global Veg Curry Price (₹)</Label>
+                    <Label className="text-orange-900">Global Veg Curry Price (RS)</Label>
                     <Input
                       type="number"
                       value={vegCurryPrice}
                       onChange={(e) => setVegCurryPrice(e.target.value)}
-                      className="mt-1"
+                      className="mt-1 bg-white"
                       placeholder="e.g. 80"
                     />
                   </div>
                   <div>
-                    <Label>Free Veg Curries with Main Meal</Label>
+                    <Label className="text-orange-900">Free Veg Curries Count</Label>
                     <Input
                       type="number"
                       value={freeVegCurriesCount}
                       onChange={(e) => setFreeVegCurriesCount(e.target.value)}
-                      className="mt-1"
+                      className="mt-1 bg-white"
                       placeholder="e.g. 3"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Number of veg curries included for free</p>
                   </div>
                 </div>
               </div>
+
+              {/* Veg Curries Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {vegCurries.length === 0 ? (
+                  <div className="col-span-full text-center py-10 bg-gray-50 rounded-xl text-gray-400 italic">
+                    No vegetarian curries added yet.
+                  </div>
+                ) : (
+                  vegCurries.map(food => (
+                    <FoodCard
+                      key={food.id}
+                      food={food}
+                      onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
+                      onDelete={() => setDeletingFood(food)}
+                      onToggleAvailability={toggleAvailability}
+                      display={renderPriceDisplay(food)}
+                    />
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-5">
-              {sections.curry.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No curries yet</div>
-              ) : (
-                sections.curry.map(food => (
-                  <FoodCard
-                    key={food.id}
-                    food={food}
-                    onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
-                    onDelete={() => setDeletingFood(food)}
-                    onToggleAvailability={toggleAvailability}
-                    display={renderPriceDisplay(food)}
-                  />
-                ))
-              )}
+            {/* 2. NON-VEGETARIAN SECTION */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100">
+              <h3 className="text-xl font-bold mb-6 text-orange-800 flex items-center gap-2">
+                🍗 Non-Vegetarian Curries
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {nonVegCurries.length === 0 ? (
+                  <div className="col-span-full text-center py-10 bg-gray-50 rounded-xl text-gray-400 italic">
+                    No non-vegetarian curries added yet.
+                  </div>
+                ) : (
+                  nonVegCurries.map(food => (
+                    <FoodCard
+                      key={food.id}
+                      food={food}
+                      onEdit={() => { setEditingFood(food); setIsModalOpen(true); }}
+                      onDelete={() => setDeletingFood(food)}
+                      onToggleAvailability={toggleAvailability}
+                      display={renderPriceDisplay(food)}
+                    />
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
-          {/* GRAVIES */}
+          {/* --- GRAVIES SECTION --- */}
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Gravies</h2>
-              <Button onClick={() => { setEditingFood({ food_type: "gravy" }); setIsModalOpen(true); }}>
-                Add Gravy
+              <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-orange-100 pl-3">Gravies</h2>
+              <Button
+                onClick={() => { setEditingFood({ food_type: "gravy" }); setIsModalOpen(true); }}
+                className="bg-orange-600 hover:bg-orange-700 text-white shadow-md"
+              >
+                + Add Gravy
               </Button>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-              <p className="text-2xl font-bold text-blue-700">All Gravies are FREE</p>
-              <p className="text-blue-600 mt-2">Included with every meal</p>
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
+              <p className="text-2xl font-bold text-orange-700">💧 All Gravies are FREE</p>
+              <p className="text-orange-600 mt-2">Included with every meal</p>
             </div>
 
-            <div className="grid gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {sections.gravy.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500">No gravies yet</div>
+                <div className="text-center py-16 bg-gray-50 rounded-2xl text-gray-500 col-span-full">No gravies yet</div>
               ) : (
                 sections.gravy.map(food => (
                   <FoodCard

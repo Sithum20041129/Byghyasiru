@@ -272,6 +272,10 @@ const RegisterPage = () => {
                   />
                 </div>
 
+                <div>
+                  <p className="text-sm text-gray-700 font-semibold mb-2">You can use mock email and password to register</p>
+                </div>
+
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Button>

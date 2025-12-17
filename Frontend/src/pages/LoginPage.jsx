@@ -11,17 +11,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { ChefHat, ArrowLeft } from 'lucide-react';
 
-const GoogleIcon = (props) => (
+/*const GoogleIcon = (props) => (
   <svg viewBox="0 0 48 48" {...props}>
     <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
     <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
     <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
     <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C43.021,36.251,44,34,44,30C44,22.659,43.862,21.35,43.611,20.083z"></path>
   </svg>
-);
+);*/
 
 
 const LoginPage = () => {
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     emailOrUsername: '',
     password: '',
@@ -32,64 +33,112 @@ const LoginPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleGoogleLogin = () => {
+  /*const handleGoogleLogin = () => {
     toast({
       title: 'Coming Soon!',
       description: '🚧 This feature isn\'t implemented yet—but don\'t worry! You can request it in your next prompt! 🚀',
     });
-  };
-  
+  };*/
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
       const user = await login(formData);
 
-      if (!user) {
+      // If user is returned successfully
+      if (user) {
+        // Check if merchant is not approved
+        if (user.role === 'merchant' && !user.approved) {
+          setError("Your merchant account is pending admin approval");
+          toast({
+            title: 'Account Pending',
+            description: 'Your merchant account is pending admin approval',
+            variant: 'destructive'
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Success - valid user
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully logged in'
+        });
+
+        switch (user.role) {
+          case 'customer':
+            navigate('/customer');
+            break;
+          case 'merchant':
+            navigate('/merchant');
+            break;
+          case 'admin':
+            navigate('/admin');
+            break;
+          default:
+            navigate('/');
+        }
+        return;
+      } else {
+        // login() returned null/false - wrong credentials
+        setError("You entered wrong email or password");
         toast({
           title: 'Login Failed',
-          description: 'Invalid credentials',
+          description: 'Invalid email or password',
           variant: 'destructive'
         });
         setLoading(false);
         return;
       }
+    } catch (error) {
+      console.error("Login error:", error);
 
-      if (user.role === 'merchant' && !user.approved) {
+      // Analyze the error to show appropriate message
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const errorString = error?.toString()?.toLowerCase() || '';
+
+      // Check if it's a credentials error
+      if (errorMessage.includes('invalid') ||
+        errorMessage.includes('credential') ||
+        errorMessage.includes('wrong') ||
+        errorMessage.includes('401') ||
+        errorString.includes('invalid') ||
+        errorString.includes('credential') ||
+        errorString.includes('wrong') ||
+        errorString.includes('401')) {
+        setError("You entered wrong email or password");
+        toast({
+          title: 'Login Failed',
+          description: 'Invalid email or password',
+          variant: 'destructive'
+        });
+      }
+      // Check if it's a pending approval error
+      else if (errorMessage.includes('pending') ||
+        errorMessage.includes('approval') ||
+        errorMessage.includes('not approved') ||
+        errorString.includes('pending') ||
+        errorString.includes('approval') ||
+        errorString.includes('not approved')) {
+        setError("Your merchant account is pending admin approval");
         toast({
           title: 'Account Pending',
           description: 'Your merchant account is pending admin approval',
           variant: 'destructive'
         });
-        setLoading(false);
-        return;
       }
-
-      toast({
-        title: 'Welcome back!',
-        description: 'Successfully logged in'
-      });
-
-      switch (user.role) {
-        case 'customer':
-          navigate('/customer');
-          break;
-        case 'merchant':
-          navigate('/merchant');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          navigate('/');
+      // Generic error for everything else
+      else {
+        setError("Something went wrong. Please try again.");
+        toast({
+          title: 'Error',
+          description: 'Something went wrong. Please try again.',
+          variant: 'destructive'
+        });
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
@@ -134,8 +183,13 @@ const LoginPage = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label htmlFor="emailOrUsername">Email or Username</Label>
+                  <Label htmlFor="emailOrUsername">Email</Label>
                   <Input
                     id="emailOrUsername"
                     name="emailOrUsername"
@@ -145,7 +199,7 @@ const LoginPage = () => {
                     className="border-orange-200 focus:border-orange-400"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
@@ -159,7 +213,7 @@ const LoginPage = () => {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
+                {/*<div className="flex items-center space-x-2">
                   <Checkbox
                     id="rememberMe"
                     checked={formData.rememberMe}
@@ -168,7 +222,7 @@ const LoginPage = () => {
                   <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
                     Remember me for 30 days
                   </Label>
-                </div>
+                </div>*/}
 
                 <Button
                   type="submit"
@@ -178,7 +232,7 @@ const LoginPage = () => {
                   {loading ? 'Signing In...' : 'Sign In'}
                 </Button>
               </form>
-              
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -188,10 +242,10 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+              {/*<Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
                 <GoogleIcon className="mr-2 h-4 w-4" />
                 Sign in with Google
-              </Button>
+              </Button>*/}
 
 
               <div className="mt-6 text-center">
@@ -203,14 +257,14 @@ const LoginPage = () => {
                 </p>
               </div>
 
-              <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+              {/*<div className="mt-6 p-4 bg-orange-50 rounded-lg">
                 <p className="text-sm text-gray-700 font-semibold mb-2">Demo Accounts:</p>
                 <div className="text-xs text-gray-600 space-y-1">
                   <p><strong>Admin:</strong> admin@quickmeal.com / admin123</p>
                   <p><strong>Customer:</strong> customer / customer123</p>
                   <p><strong>Merchant:</strong> merchant@test.com / merchant123</p>
                 </div>
-              </div>
+              </div>*/}
             </CardContent>
           </Card>
         </motion.div>

@@ -30,3 +30,8 @@ yarn-error.log*
 php_errors.log
 error_log
 debug.log
+
+api/vendor/
+api/src/
+api/auth/google_login.php
+api/auth/google_callback.php

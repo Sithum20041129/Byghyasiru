@@ -9,19 +9,26 @@ $data = get_json_input();
 
 $email         = trim($data['email'] ?? '');
 $username      = trim($data['username'] ?? '');
+// Allow password to be empty if it's a Google registration
 $password      = $data['password'] ?? '';
+$is_google     = !empty($data['is_google_register']); 
+$google_id     = $data['google_id'] ?? null;
+
 $role          = in_array($data['role'] ?? 'customer', ['customer', 'merchant']) ? $data['role'] : 'customer';
 $university_id = !empty($data['university_id']) ? (int)$data['university_id'] : null;
 
 // VALIDATION
-if (!$email || !$username || !$password) {
-    send_json(['ok' => false, 'error' => 'Missing: email, username, password'], 400);
+if (!$email || !$username) {
+    send_json(['ok' => false, 'error' => 'Missing: email or username'], 400);
+}
+// Only validate password if NOT using Google
+if (!$is_google) {
+    if (!$password || strlen($password) < 6) {
+        send_json(['ok' => false, 'error' => 'Password must be at least 6 characters'], 400);
+    }
 }
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     send_json(['ok' => false, 'error' => 'Invalid email'], 400);
-}
-if (strlen($password) < 6) {
-    send_json(['ok' => false, 'error' => 'Password too short'], 400);
 }
 
 // MERCHANT FIELDS
@@ -41,19 +48,21 @@ if ($stmt->fetch()) {
     send_json(['ok' => false, 'error' => 'Email or username taken'], 409);
 }
 
-$hash = password_hash($password, PASSWORD_BCRYPT);
+// Hash password only if provided
+$hash = $password ? password_hash($password, PASSWORD_BCRYPT) : null;
 
 try {
     $pdo->beginTransaction();
 
-    // FIX: Customers = approved=1, Merchants = 0
+    // Customers = approved=1, Merchants = 0
     $user_approved = ($role === 'customer') ? 1 : 0;
 
+    // Insert user (Now supports google_id)
     $stmt = $pdo->prepare("
-        INSERT INTO users (username, email, password, name, role, university_id, approved)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, email, password, name, role, university_id, approved, google_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$username, $email, $hash, $username, $role, $university_id, $user_approved]);
+    $stmt->execute([$username, $email, $hash, $username, $role, $university_id, $user_approved, $google_id]);
     $userId = (int)$pdo->lastInsertId();
 
     if ($role === 'merchant') {
@@ -66,33 +75,25 @@ try {
 
     $pdo->commit();
 
-    // AUTO LOGIN CUSTOMERS ONLY
+    // AUTO LOGIN (If Customer)
     if ($role === 'customer') {
         start_session_if_needed();
         $_SESSION['user_id'] = $userId;
         $_SESSION['user_role'] = $role;
+        $_SESSION['user'] = [
+            'id' => $userId,
+            'username' => $username,
+            'email' => $email,
+            'name' => $username,
+            'role' => $role,
+            'university_id' => $university_id,
+            'approved' => 1
+        ];
+        
+        // Clear temp session
+        unset($_SESSION['temp_google_user']);
 
-        $uniName = null;
-        if ($university_id) {
-            $u = $pdo->prepare("SELECT name FROM universities WHERE id = ?");
-            $u->execute([$university_id]);
-            $row = $u->fetch(PDO::FETCH_ASSOC);
-            $uniName = $row['name'] ?? null;
-        }
-
-        send_json([
-            'ok' => true,
-            'user' => [
-                'id' => $userId,
-                'username' => $username,
-                'email' => $email,
-                'name' => $username,
-                'role' => $role,
-                'university_id' => $university_id,
-                'university_name' => $uniName,
-                'approved' => 1
-            ]
-        ]);
+        send_json(['ok' => true]);
     }
 
     send_json([

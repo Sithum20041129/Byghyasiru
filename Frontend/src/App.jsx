@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Toaster } from "sonner"; // ✅ use sonner
 import { AuthProvider } from "@/contexts/AuthContext";
+import CompleteProfile from "./pages/CompleteProfile";
 
 // Pages
 import HomePage from "@/pages/HomePage";
@@ -27,7 +28,7 @@ const AppRoutes = () => {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-
+      <Route path="/complete-profile" element={<CompleteProfile />} />
       {/* Dashboards */}
       <Route path="/customer" element={<CustomerDashboard />} />
       <Route path="/merchant" element={<MerchantDashboard />} />

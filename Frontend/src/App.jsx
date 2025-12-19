@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Toaster } from "sonner"; // ✅ use sonner
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -44,6 +44,11 @@ const AppRoutes = () => {
       {/* Merchant-specific pages */}
       <Route path="/merchant/menu" element={<MenuPricing />} />
       <Route path="/merchant/settings" element={<StoreSettings />} />
+
+      {/* Redirects for legacy backend URLs */}
+      <Route path="/customer/dashboard" element={<Navigate to="/customer" replace />} />
+      <Route path="/merchant/dashboard" element={<Navigate to="/merchant" replace />} />
+      <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
 };

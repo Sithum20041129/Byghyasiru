@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { 
-  LogOut, Users, Store, Clock, PlusCircle, Trash2, 
-CheckCircle, XCircle, UserCheck, Package, School
+import {
+  LogOut, Users, Store, Clock, PlusCircle, Trash2,
+  CheckCircle, XCircle, UserCheck, Package, School
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -20,11 +20,13 @@ const AdminDashboard = () => {
   const [universities, setUniversities] = useState([]);
   const [pendingMerchants, setPendingMerchants] = useState([]);
   const [newUniversity, setNewUniversity] = useState('');
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (loading) return;
+
     if (!user || user.role !== 'admin') {
       navigate('/login');
       return;
@@ -40,6 +42,10 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, [user, navigate]);
 
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading dashboard...</div>;
+  }
+
   const loadStats = async () => {
     try {
       const [usersRes, merchantsRes, ordersRes] = await Promise.all([
@@ -47,9 +53,9 @@ const AdminDashboard = () => {
         fetch('/api/admin/merchants.php', { credentials: 'include' }).then(r => r.json()),
         fetch('/api/orders/list.php', { credentials: 'include' }).then(r => r.json())
       ]);
-  
+
       console.log('Stats API:', { usersRes, merchantsRes, ordersRes });
-  
+
       if (usersRes.ok) {
         const customers = usersRes.users?.filter(u => u.role === 'customer') || [];
         setTotalCustomers(customers.length);
@@ -174,7 +180,7 @@ const AdminDashboard = () => {
         <title>Admin Dashboard | QuickMeal</title>
       </Helmet>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-7xl mx-auto p-6"
@@ -281,8 +287,8 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <Input 
-                  placeholder="New university name..." 
+                <Input
+                  placeholder="New university name..."
                   value={newUniversity}
                   onChange={(e) => setNewUniversity(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addUniversity()}

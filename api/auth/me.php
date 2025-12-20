@@ -10,10 +10,8 @@ require_once __DIR__ . '/../../helpers.php';
 $pdo = getPDO();
 
 // 3. Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_name('quickmeal_session');
-    session_start();
-}
+// 3. Start session
+start_session_if_needed();
 
 // 4. No user? Return null
 if (empty($_SESSION['user_id'])) {

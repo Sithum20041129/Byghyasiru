@@ -60,6 +60,14 @@ function require_login() {
 }
 
 /**
+ * Get logged user ID
+ */
+function get_logged_user_id() {
+    start_session_if_needed();
+    return $_SESSION['user_id'] ?? null;
+}
+
+/**
  * Get logged user role
  */
 function get_logged_user_role() {

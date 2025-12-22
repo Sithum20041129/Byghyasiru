@@ -97,7 +97,7 @@ export default function StoreSettings() {
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-6">
           <div>
-            <Label>Daily Order Limit</Label>
+            <Label>Max Pre-Orders Per Meal</Label>
             <Input
               type="number"
               value={dailyLimit}
@@ -105,7 +105,7 @@ export default function StoreSettings() {
               min="1"
               className="mt-1"
             />
-            <p className="text-sm text-gray-600 mt-1">Limit the number of online orders per day</p>
+            <p className="text-sm text-gray-600 mt-1">Maximum allowed orders for each meal period (resets automatically)</p>
           </div>
 
           <div>

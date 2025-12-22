@@ -128,6 +128,7 @@ CREATE TABLE orders (
     website_charge DECIMAL(10,2) DEFAULT 0.00,
     total DECIMAL(10,2) DEFAULT 0.00,
     status VARCHAR(50) DEFAULT 'pending',
+    meal_time VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (merchant_id) REFERENCES merchants(id) ON DELETE CASCADE

@@ -7,6 +7,20 @@ require_once __DIR__ . '/../../helpers.php';
 $pdo = getPDO();
 require_login(); // ✅ ensures session exists and user is logged in
 
+// --- SELF-HEALING SCHEMA ---
+// Ensure 'meal_time' column exists in 'orders' table
+try {
+    $pdo->query("SELECT meal_time FROM orders LIMIT 1");
+} catch (Exception $e) {
+    // Column likely missing, add it
+    try {
+        $pdo->exec("ALTER TABLE orders ADD COLUMN meal_time VARCHAR(20) DEFAULT NULL AFTER status");
+    } catch (Exception $ex) {
+        // Ignore if it fails (maybe permission issue or race condition), logic below handles nulls if needed
+    }
+}
+// ---------------------------
+
 $userId = get_logged_user_id();
 $userRole = get_logged_user_role();
 
@@ -23,10 +37,10 @@ if (!$data || !isset($data['merchant_id'])) {
     exit;
 }
 
-// ✅ Check Store Availability (Enforce Cut-Off)
+// ✅ Check Store Availability (Enforce Cut-Off & Daily/Meal Limit)
 $merchantId = (int)$data['merchant_id'];
 $storeStmt = $pdo->prepare("
-    SELECT accepting_orders, active_meal_time, 
+    SELECT accepting_orders, active_meal_time, order_limit,
            breakfast_cutoff, lunch_cutoff, dinner_cutoff 
     FROM merchants WHERE id = ?
 ");
@@ -45,7 +59,7 @@ if (!$store['accepting_orders']) {
 }
 
 // 2. Check Automatic Cut-Off
-$activeMeal = $store['active_meal_time'];
+$activeMeal = $store['active_meal_time'] ?: 'Lunch'; // Default to Lunch if empty
 $cutoffColumn = strtolower($activeMeal) . '_cutoff'; // e.g. 'lunch_cutoff'
 
 if (isset($store[$cutoffColumn]) && !empty($store[$cutoffColumn])) {
@@ -56,6 +70,31 @@ if (isset($store[$cutoffColumn]) && !empty($store[$cutoffColumn])) {
         send_json([
             "success" => false, 
             "message" => "Pre-orders for " . $activeMeal . " have closed (Cut-off: " . $cutoffTime . ")"
+        ], 400);
+        exit;
+    }
+}
+
+// 3. ✅ Check 'Max Pre-Orders Per Meal' (Reset per meal time)
+$limit = (int)$store['order_limit'];
+
+if ($limit > 0) {
+    // Count orders for CURRENT merchant + CURRENT date + CURRENT meal time
+    // We ignore cancelled orders
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM orders 
+        WHERE merchant_id = ? 
+        AND DATE(created_at) = CURDATE() 
+        AND meal_time = ? 
+        AND status != 'cancelled'
+    ");
+    $countStmt->execute([$merchantId, $activeMeal]);
+    $currentOrderCount = $countStmt->fetchColumn();
+
+    if ($currentOrderCount >= $limit) {
+        send_json([
+            "success" => false,
+            "message" => "Pre-orders for " . $activeMeal . " are now full (Limit: " . $limit . ")"
         ], 400);
         exit;
     }
@@ -92,10 +131,10 @@ try {
     $websiteCharge = round($mealTotal * 0.05, 2);
     $total = $mealTotal + $websiteCharge;
 
-    // Insert into orders (NO order_number)
+    // Insert into orders (Now including meal_time)
     $stmt = $pdo->prepare("
-        INSERT INTO orders (customer_id, merchant_id, meal_count, meal_total, website_charge, total, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO orders (customer_id, merchant_id, meal_count, meal_total, website_charge, total, status, meal_time, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
     $stmt->execute([
         $userId, // ✅ from session
@@ -104,7 +143,8 @@ try {
         $mealTotal,
         $websiteCharge,
         $total,
-        'pending'
+        'pending',
+        $activeMeal // ✅ Save the meal time of this order
     ]);
 
     $orderId = $pdo->lastInsertId();
@@ -145,4 +185,3 @@ try {
         "message" => "Order creation failed: " . $e->getMessage()
     ], 500);
 }
-

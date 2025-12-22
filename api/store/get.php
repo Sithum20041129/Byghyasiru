@@ -24,6 +24,7 @@ if (!$storeId) {
 
 try {
     // 🔹 Store info
+    // Attempt 1: Fetch ALL columns (including new Veg Pricing & Meal Time)
     try {
         $stmt = $pdo->prepare("
             SELECT m.id, m.store_name, m.store_address, m.website_charge,
@@ -40,25 +41,49 @@ try {
         $stmt->execute([$storeId]);
         $store = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        // Fallback: exclude new columns if they don't exist
-        $stmt = $pdo->prepare("
-            SELECT m.id, m.store_name, m.store_address, m.website_charge,
-                   m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
-                   m.university_id, un.name AS university_name,
-                   u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
-            FROM merchants m
-            JOIN users u ON m.user_id = u.id
-            LEFT JOIN universities un ON m.university_id = un.id
-            WHERE m.id = ? AND m.approved = 1
-            LIMIT 1
-        ");
-        $stmt->execute([$storeId]);
-        $store = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($store) {
-            $store['free_veg_curries_count'] = 0;
-            $store['veg_curry_price'] = 0;
-            $store['active_meal_time'] = 'Lunch'; // Default
+        // Attempt 2: Fallback (If Veg Pricing cols missing, STILL try to get active_meal_time)
+        // This fixes the 'Always Lunch' bug
+        try {
+            $stmt = $pdo->prepare("
+                SELECT m.id, m.store_name, m.store_address, m.website_charge,
+                       m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
+                       m.active_meal_time, -- ✅ fetching this is crucial
+                       m.university_id, un.name AS university_name,
+                       u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
+                FROM merchants m
+                JOIN users u ON m.user_id = u.id
+                LEFT JOIN universities un ON m.university_id = un.id
+                WHERE m.id = ? AND m.approved = 1
+                LIMIT 1
+            ");
+            $stmt->execute([$storeId]);
+            $store = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($store) {
+                $store['free_veg_curries_count'] = 0;
+                $store['veg_curry_price'] = 0;
+            }
+        } catch (PDOException $e2) {
+            // Attempt 3: Absolute Fallback (Only if even active_meal_time is missing)
+            $stmt = $pdo->prepare("
+                SELECT m.id, m.store_name, m.store_address, m.website_charge,
+                       m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
+                       m.university_id, un.name AS university_name,
+                       u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
+                FROM merchants m
+                JOIN users u ON m.user_id = u.id
+                LEFT JOIN universities un ON m.university_id = un.id
+                WHERE m.id = ? AND m.approved = 1
+                LIMIT 1
+            ");
+            $stmt->execute([$storeId]);
+            $store = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($store) {
+                $store['free_veg_curries_count'] = 0;
+                $store['veg_curry_price'] = 0;
+                $store['active_meal_time'] = 'Lunch'; // Only defaults to Lunch in worst case
+            }
         }
     }
 
@@ -68,7 +93,6 @@ try {
     }
 
     // 🔹 Foods for this store
-    // Use try-catch to handle missing is_divisible column in some environments
     try {
         $foodsStmt = $pdo->prepare("
             SELECT f.id, f.name, f.description, f.price, f.available, f.category, f.meal_time, f.food_type, f.is_veg, f.is_divisible, f.extra_piece_price
@@ -89,13 +113,12 @@ try {
         $foodsStmt->execute([$storeId]);
         $foods = $foodsStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Add default is_divisible = 0
         foreach ($foods as &$f) {
             $f['is_divisible'] = 0;
         }
     }
 
-    // 🔹 Fetch portion prices for each food
+    // 🔹 Fetch portion prices
     foreach ($foods as &$food) {
         try {
             $priceStmt = $pdo->prepare("SELECT portion_name, price FROM food_prices WHERE food_id = ?");
@@ -108,23 +131,45 @@ try {
             }
             $food['portion_prices'] = $portionPrices;
         } catch (Exception $ex) {
-            // Ignore if table doesn't exist yet
             $food['portion_prices'] = [];
         }
+    }
+
+    // 🔹 Automatic Cut-Off Logic
+    // Logic: If Manual Toggle is ON, check Schedule. If Schedule passed, turn OFF.
+    // If Manual Toggle is OFF, stay OFF.
+    $activeMeal = $store['active_meal_time']; // e.g., 'Lunch'
+    $cutoffColumn = strtolower($activeMeal) . '_cutoff'; // e.g., 'lunch_cutoff'
+    
+    // Check if we have a cutoff time for this meal
+    $isCutoffPassed = false;
+    if (isset($store[$cutoffColumn]) && !empty($store[$cutoffColumn])) {
+        $cutoffTime = $store[$cutoffColumn]; // "14:00:00"
+        $currentTime = date('H:i:s');
+        if ($currentTime > $cutoffTime) {
+            $isCutoffPassed = true;
+        }
+    }
+
+    $finalAcceptingOrders = (bool)$store['accepting_orders'];
+    if ($finalAcceptingOrders && $isCutoffPassed) {
+        // If manually ON but time passed -> OFF
+        $finalAcceptingOrders = false;
     }
 
     // 🔹 Store settings
     $settings = [
         "isOpen" => (bool)$store['is_open'],
-        "acceptingOrders" => (bool)$store['accepting_orders'],
+        "acceptingOrders" => $finalAcceptingOrders, // ✅ Enforced
+        "manualAcceptingOrders" => (bool)$store['accepting_orders'], // Original state if needed
         "orderLimit" => (int)$store['order_limit'],
         "closingTime" => $store['closing_time'],
         "freeVegCurries" => (int)($store['free_veg_curries_count'] ?? 0),
         "vegCurryPrice" => (float)($store['veg_curry_price'] ?? 0),
-        "activeMealTime" => $store['active_meal_time'] ?? 'Lunch'
+        "activeMealTime" => $store['active_meal_time'] ?? 'Lunch',
+        "activeCutoff" => isset($store[$cutoffColumn]) ? $store[$cutoffColumn] : null
     ];
 
-    // 🔹 Final response
     send_json([
         "success" => true,
         "store" => [

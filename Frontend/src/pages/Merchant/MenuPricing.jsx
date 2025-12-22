@@ -72,17 +72,18 @@ const FoodCard = ({ food, onEdit, onDelete, onToggleAvailability, display }) => 
     {/* Availability Toggle */}
     <div className="flex items-center justify-between mb-4 bg-gray-50 p-3 rounded-lg">
       <div className="flex items-center space-x-2">
+        {/* ✅ FIXED: Using 'food.available' instead of 'is_available' */}
         <Switch
           id={`availability-${food.id}`}
-          checked={food.is_available == 1}
+          checked={Number(food.available) === 1}
           onCheckedChange={(checked) => onToggleAvailability(food, checked)}
           className="data-[state=checked]:bg-green-600"
         />
         <Label
           htmlFor={`availability-${food.id}`}
-          className={`cursor-pointer font-medium ${food.is_available == 1 ? "text-green-700" : "text-gray-400"}`}
+          className={`cursor-pointer font-medium ${Number(food.available) === 1 ? "text-green-700" : "text-gray-400"}`}
         >
-          {food.is_available == 1 ? "In Stock" : "Sold Out"}
+          {Number(food.available) === 1 ? "In Stock" : "Sold Out"}
         </Label>
       </div>
     </div>
@@ -93,7 +94,7 @@ const FoodCard = ({ food, onEdit, onDelete, onToggleAvailability, display }) => 
   </div>
 );
 
-// --- 2. EXISTING FORM COMPONENT (No Changes Needed Here) ---
+// --- 2. EXISTING FORM COMPONENT ---
 const FoodForm = ({ food, portions, onSave, onClose }) => {
   const isEdit = !!food?.id;
   const isMainMeal = food?.food_type === "main_meal";
@@ -155,7 +156,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
     }
   };
 
-  // Only allow "Can sell extra pieces" for non-veg curries
   const showPortionPrices = isCurry && isVeg === "nonveg";
   const showExtraPieceOption = showPortionPrices;
 
@@ -166,7 +166,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
         <Input value={name} onChange={e => setName(e.target.value)} placeholder="Enter name" autoFocus />
       </div>
 
-      {/* Curry Type Selection - Only when adding new curry */}
       {isCurry && !isEdit && (
         <div>
           <Label>Curry Type *</Label>
@@ -185,7 +184,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
         </div>
       )}
 
-      {/* Show badge when editing curry */}
       {isCurry && isEdit && (
         <div className="p-4 bg-gray-50 rounded-lg">
           <Badge variant={food.is_veg == 1 ? "success" : "destructive"} className="text-lg">
@@ -194,7 +192,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
         </div>
       )}
 
-      {/* Portion Prices - Only for Non-Veg Curries & Main Meals */}
       {(showPortionPrices || isMainMeal) && (
         <div className="space-y-4 pt-4 border-t">
           <Label className="text-lg font-medium">Portion Prices (₹)</Label>
@@ -217,7 +214,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
         </div>
       )}
 
-      {/* Can Sell Extra Pieces - Only for Non-Veg Curries */}
       {showExtraPieceOption && (
         <div className="flex items-center space-x-3 pt-4">
           <Checkbox
@@ -231,7 +227,6 @@ const FoodForm = ({ food, portions, onSave, onClose }) => {
         </div>
       )}
 
-      {/* Extra Piece Price Field */}
       {showExtraPieceOption && isDivisible && (
         <div className="ml-8 -mt-2">
           <Label>Extra Piece Price (RS)</Label>
@@ -267,7 +262,6 @@ const MenuPricing = () => {
   const [editingFood, setEditingFood] = useState(null);
   const [deletingFood, setDeletingFood] = useState(null);
 
-  // Load Data
   const loadMenu = async () => {
     setLoading(true);
     try {
@@ -299,7 +293,7 @@ const MenuPricing = () => {
   const handleSave = async (formData, isEdit) => {
     const payload = {
       ...formData,
-      meal_time: 'all', // Universal meal time
+      meal_time: 'all',
     };
 
     if (!isEdit) {
@@ -351,14 +345,12 @@ const MenuPricing = () => {
     finally { setDeletingFood(null); }
   };
 
-  // --- DATA SEPARATION LOGIC ---
   const sections = {
     main_meal: foods.filter(f => f.food_type === "main_meal"),
     curry: foods.filter(f => f.food_type === "curry"),
     gravy: foods.filter(f => f.food_type === "gravy")
   };
 
-  // Create separated lists for Veg and Non-Veg
   const vegCurries = sections.curry.filter(c => c.is_veg == 1);
   const nonVegCurries = sections.curry.filter(c => c.is_veg == 0);
 
@@ -385,22 +377,25 @@ const MenuPricing = () => {
   };
 
   const toggleAvailability = async (food, isAvailable) => {
+    // ✅ FIXED: Update local state using 'available'
     setFoods(prev => prev.map(f =>
-      f.id === food.id ? { ...f, is_available: isAvailable ? 1 : 0 } : f
+      f.id === food.id ? { ...f, available: isAvailable ? 1 : 0 } : f
     ));
     try {
+      // ✅ FIXED: Send 'available' to match Database, though backend supports both
       const res = await fetch("/api/merchant/update_food_availability.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ id: food.id, is_available: isAvailable })
+        body: JSON.stringify({ id: food.id, available: isAvailable })
       });
       if (!res.ok) throw new Error("Server error");
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
     } catch (err) {
+      // Revert on error
       setFoods(prev => prev.map(f =>
-        f.id === food.id ? { ...f, is_available: !isAvailable ? 1 : 0 } : f
+        f.id === food.id ? { ...f, available: !isAvailable ? 1 : 0 } : f
       ));
       toast.error("Failed to update availability");
     }

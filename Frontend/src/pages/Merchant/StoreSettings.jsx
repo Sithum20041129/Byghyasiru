@@ -10,6 +10,9 @@ import { Clock, Plus, X } from "lucide-react";
 export default function StoreSettings() {
   const [dailyLimit, setDailyLimit] = useState(50);
   const [closingTime, setClosingTime] = useState("22:00");
+  const [breakfastCutoff, setBreakfastCutoff] = useState("");
+  const [lunchCutoff, setLunchCutoff] = useState("");
+  const [dinnerCutoff, setDinnerCutoff] = useState("");
   const [newPortion, setNewPortion] = useState("");
   const [portions, setPortions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +28,9 @@ export default function StoreSettings() {
       if (data.ok) {
         setDailyLimit(data.order_limit || 50);
         setClosingTime(data.closing_time || "22:00");
+        setBreakfastCutoff(data.breakfast_cutoff || "");
+        setLunchCutoff(data.lunch_cutoff || "");
+        setDinnerCutoff(data.dinner_cutoff || "");
         setPortions(data.portions || []);
       }
     } catch (err) {
@@ -42,6 +48,9 @@ export default function StoreSettings() {
         body: JSON.stringify({
           order_limit: parseInt(dailyLimit) || null,
           closing_time: closingTime,
+          breakfast_cutoff: breakfastCutoff,
+          lunch_cutoff: lunchCutoff,
+          dinner_cutoff: dinnerCutoff,
           portions: portions
         })
       });
@@ -111,6 +120,52 @@ export default function StoreSettings() {
               <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
             </div>
             <p className="text-sm text-gray-600 mt-1">Display closing time to customers</p>
+          </div>
+
+          <div className="pt-4 border-t">
+            <h3 className="font-medium mb-3">Meal Order Cut-off Times</h3>
+            <p className="text-sm text-gray-500 mb-4">Orders will automatically stop at these times for each meal period.</p>
+
+            <div className="space-y-4">
+              <div>
+                <Label>Breakfast Cut-off</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type="time"
+                    value={breakfastCutoff}
+                    onChange={(e) => setBreakfastCutoff(e.target.value)}
+                    className="pl-10"
+                  />
+                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              <div>
+                <Label>Lunch Cut-off</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type="time"
+                    value={lunchCutoff}
+                    onChange={(e) => setLunchCutoff(e.target.value)}
+                    className="pl-10"
+                  />
+                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              <div>
+                <Label>Dinner Cut-off</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type="time"
+                    value={dinnerCutoff}
+                    onChange={(e) => setDinnerCutoff(e.target.value)}
+                    className="pl-10"
+                  />
+                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -15,8 +15,8 @@ import MenuPricing from "./Merchant/MenuPricing";  // ← IMPORT ADDED HERE
 const MerchantDashboard = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [activeOrders, setActiveOrders] = useState([]);
-  const [completedOrdersToday, setCompletedOrdersToday] = useState([]);
-  const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState([]);
+  const [completedOrdersToday, setCompletedOrdersToday] = useState(0);
+  const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState(0);
   const [storeSettings, setStoreSettings] = useState({
     is_open: false,
     accepting_orders: false,
@@ -63,8 +63,8 @@ const MerchantDashboard = () => {
       if (data.ok) {
         setPendingOrders(data.pending || []);
         setActiveOrders(data.active || []);
-        setCompletedOrdersToday(data.completedToday || []);
-        setCompletedOrdersThisMonth(data.completedThisMonth || []);
+        setCompletedOrdersToday(data.completedToday || 0);
+        setCompletedOrdersThisMonth(data.completedThisMonth || 0);
       } else {
         setError(true);
         toast({ title: 'Error', description: data.error || 'Failed to load orders', variant: 'destructive' });
@@ -170,8 +170,8 @@ const MerchantDashboard = () => {
         <StatsCards
           pendingCount={pendingOrders.length}
           activeCount={activeOrders.length}
-          completedTodayCount={completedOrdersToday.length}
-          completedMonthCount={completedOrdersThisMonth.length}
+          completedTodayCount={completedOrdersToday}
+          completedMonthCount={completedOrdersThisMonth}
           storeSettings={storeSettings}
           onToggleSetting={toggleSetting}
         />

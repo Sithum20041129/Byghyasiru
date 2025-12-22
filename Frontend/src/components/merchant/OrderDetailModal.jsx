@@ -88,10 +88,18 @@ const OrderDetailModal = ({ order, onUpdateStatus }) => {
       <DialogFooter>
         {order.status === 'pending' && (
           <Button
-            onClick={() => onUpdateStatus(order.id, 'completed')}
+            onClick={() => onUpdateStatus(order.id, 'ready')}
             className="bg-blue-500 hover:bg-blue-600 text-white w-full"
           >
             Mark as Prepared
+          </Button>
+        )}
+        {(order.status === 'ready' || order.status === 'preparing') && (
+          <Button
+            onClick={() => onUpdateStatus(order.id, 'completed')}
+            className="bg-green-500 hover:bg-green-600 text-white w-full"
+          >
+            Mark as Completed
           </Button>
         )}
       </DialogFooter>

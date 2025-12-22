@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Colombo');
 // public_html/helpers.php
 // FULLY WORKING — with admin check
 

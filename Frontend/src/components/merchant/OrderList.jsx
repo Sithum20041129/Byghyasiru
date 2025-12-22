@@ -53,11 +53,23 @@ const OrderList = ({ orders, onUpdateStatus, category }) => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onUpdateStatus(order.id, 'completed');
+                        onUpdateStatus(order.id, 'ready');
                       }}
                       className="bg-blue-500 hover:bg-blue-600 text-white"
                     >
                       Mark as Prepared
+                    </Button>
+                  )}
+                  {(order.status === 'ready' || order.status === 'preparing') && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateStatus(order.id, 'completed');
+                      }}
+                      className="bg-green-500 hover:bg-green-600 text-white"
+                    >
+                      Complete
                     </Button>
                   )}
                 </div>

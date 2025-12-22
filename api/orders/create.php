@@ -16,8 +16,52 @@ if ($userRole !== 'customer') {
     exit;
 }
 
-// ✅ Read request body
+// ✅ Read request body first to get merchant_id
 $data = json_decode(file_get_contents("php://input"), true);
+if (!$data || !isset($data['merchant_id'])) {
+    send_json(["success" => false, "message" => "Invalid input: merchant_id missing"], 400);
+    exit;
+}
+
+// ✅ Check Store Availability (Enforce Cut-Off)
+$merchantId = (int)$data['merchant_id'];
+$storeStmt = $pdo->prepare("
+    SELECT accepting_orders, active_meal_time, 
+           breakfast_cutoff, lunch_cutoff, dinner_cutoff 
+    FROM merchants WHERE id = ?
+");
+$storeStmt->execute([$merchantId]);
+$store = $storeStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$store) {
+    send_json(["success" => false, "message" => "Store not found"], 404);
+    exit;
+}
+
+// 1. Check Manual Toggle first
+if (!$store['accepting_orders']) {
+    send_json(["success" => false, "message" => "Store is currently not accepting orders"], 400);
+    exit;
+}
+
+// 2. Check Automatic Cut-Off
+$activeMeal = $store['active_meal_time'];
+$cutoffColumn = strtolower($activeMeal) . '_cutoff'; // e.g. 'lunch_cutoff'
+
+if (isset($store[$cutoffColumn]) && !empty($store[$cutoffColumn])) {
+    $cutoffTime = $store[$cutoffColumn];
+    $currentTime = date('H:i:s');
+    
+    if ($currentTime > $cutoffTime) {
+        send_json([
+            "success" => false, 
+            "message" => "Pre-orders for " . $activeMeal . " have closed (Cut-off: " . $cutoffTime . ")"
+        ], 400);
+        exit;
+    }
+}
+
+// ✅ Validation passed, proceed with logic...
 if (
     !$data ||
     !isset($data['merchant_id']) ||

@@ -17,6 +17,11 @@ export default function StoreSettings() {
   const [portions, setPortions] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Status Feedback
+  const [isAutoPaused, setIsAutoPaused] = useState(false);
+  const [activeMeal, setActiveMeal] = useState("Lunch");
+  const [serverTime, setServerTime] = useState("");
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -26,12 +31,18 @@ export default function StoreSettings() {
       const res = await fetch('/api/merchant/get_settings.php', { credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
+        if (data.debug) console.log("Store Settings Debug:", data.debug);
         setDailyLimit(data.order_limit || 50);
         setClosingTime(data.closing_time || "22:00");
         setBreakfastCutoff(data.breakfast_cutoff || "");
         setLunchCutoff(data.lunch_cutoff || "");
         setDinnerCutoff(data.dinner_cutoff || "");
         setPortions(data.portions || []);
+
+        // New status logic
+        setIsAutoPaused(data.auto_disabled || false);
+        setActiveMeal(data.active_meal_time || "Lunch");
+        setServerTime(data.server_time || "");
       }
     } catch (err) {
       toast.error("Failed to load settings");
@@ -57,6 +68,8 @@ export default function StoreSettings() {
       const data = await res.json();
       if (data.ok) {
         toast.success("Settings saved!");
+        // Reload to recalculate auto-pause status with new times
+        loadSettings();
       } else {
         toast.error(data.error || "Save failed");
       }
@@ -85,12 +98,17 @@ export default function StoreSettings() {
   return (
     <div className="p-6 space-y-8 bg-white rounded-2xl shadow-lg">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-4m-6 0H5a2 2 0 002-2v-1" />
-          </svg>
-          Store Settings
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-4m-6 0H5a2 2 0 002-2v-1" />
+            </svg>
+            Store Settings
+          </h1>
+          <Button variant="outline" size="sm" onClick={loadSettings} disabled={loading}>
+            {loading ? "Loading..." : "Refresh Data"}
+          </Button>
+        </div>
         <p className="text-sm text-gray-600">Manage your store availability, order limits, and university affiliations.</p>
       </div>
 
@@ -107,6 +125,19 @@ export default function StoreSettings() {
             />
             <p className="text-sm text-gray-600 mt-1">Maximum allowed orders for each meal period (resets automatically)</p>
           </div>
+
+          {isAutoPaused && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md flex items-start gap-3">
+              <Clock className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">Orders Auto-Paused</p>
+                <p className="text-xs mt-1">
+                  The cutoff time for <strong>{activeMeal}</strong> has passed based on server time ({serverTime}).
+                  New orders are disabled until the next meal period or if you extend the cutoff time.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div>
             <Label>Closing Time</Label>

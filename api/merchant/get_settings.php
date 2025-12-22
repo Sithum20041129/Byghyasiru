@@ -14,6 +14,14 @@ if (!$merchant_id) {
     send_json(['ok' => false, 'error' => 'Not found'], 404);
 }
 
+
+// Prevent caching
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
+date_default_timezone_set('Asia/Colombo');
+
 try {
     // ✅ ADDED BACK: free_veg_curries_count, veg_curry_price
     try {
@@ -46,10 +54,40 @@ try {
     $portionsStmt->execute([$merchant_id]);
     $portions = $portionsStmt->fetchAll(PDO::FETCH_COLUMN);
 
+    // 🔹 Calculate Effective Status (Logic from api/store/get.php)
+    $activeMeal = $settings['active_meal_time'] ?? 'Lunch';
+    $cutoffColumn = strtolower($activeMeal) . '_cutoff';
+    
+    $isCutoffPassed = false;
+    $autoCutoffTime = null;
+
+    if (isset($settings[$cutoffColumn]) && !empty($settings[$cutoffColumn])) {
+        $autoCutoffTime = $settings[$cutoffColumn];
+        $currentTime = date('H:i:s');
+        if ($currentTime > $autoCutoffTime) {
+            $isCutoffPassed = true;
+        }
+    }
+
+    $manualAcceptingOrders = (bool)$settings['accepting_orders'];
+    $effectivelyOpen = $manualAcceptingOrders;
+    
+    if ($manualAcceptingOrders && $isCutoffPassed) {
+        $effectivelyOpen = false;
+    }
+
     send_json([
         'ok' => true,
+        'debug' => [
+            'merchant_id' => $merchant_id,
+            'user_id' => $_SESSION['user_id'] ?? null
+        ],
         'is_open' => (int)$settings['is_open'],
-        'accepting_orders' => (int)$settings['accepting_orders'],
+        'accepting_orders' => (int)$settings['accepting_orders'], // Manual toggle state
+        'effectively_accepting' => $effectivelyOpen, // REAL state
+        'auto_disabled' => $isCutoffPassed, // Why it's disabled
+        'server_time' => date('H:i:s'), // Debugging
+        'active_meal_cutoff' => $autoCutoffTime,
         'order_limit' => $settings['order_limit'] ? (int)$settings['order_limit'] : null,
         'closing_time' => $settings['closing_time'] ?? '22:00',
         'active_meal_time' => $settings['active_meal_time'] ?? 'Lunch',

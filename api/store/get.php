@@ -1,5 +1,9 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+date_default_timezone_set('Asia/Colombo');
 
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../helpers.php';
@@ -30,6 +34,7 @@ try {
             SELECT m.id, m.store_name, m.store_address, m.website_charge,
                    m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
                    m.free_veg_curries_count, m.veg_curry_price, m.active_meal_time,
+                   m.breakfast_cutoff, m.lunch_cutoff, m.dinner_cutoff,
                    m.university_id, un.name AS university_name,
                    u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
             FROM merchants m
@@ -47,7 +52,8 @@ try {
             $stmt = $pdo->prepare("
                 SELECT m.id, m.store_name, m.store_address, m.website_charge,
                        m.is_open, m.accepting_orders, m.order_limit, m.closing_time,
-                       m.active_meal_time, -- ✅ fetching this is crucial
+                       m.active_meal_time,
+                       m.breakfast_cutoff, m.lunch_cutoff, m.dinner_cutoff, -- ✅ Ensure cutoffs are fetched
                        m.university_id, un.name AS university_name,
                        u.username AS owner_username, u.name AS owner_name, u.email AS owner_email
                 FROM merchants m

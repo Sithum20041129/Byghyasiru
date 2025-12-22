@@ -22,12 +22,12 @@ const StatCard = ({ title, value, icon: Icon, colorClass, iconColorClass }) => (
   </Card>
 );
 
-const StatsCards = ({ pendingCount, activeCount, completedTodayCount, completedMonthCount, storeSettings, onToggleSetting }) => {
+const StatsCards = ({ pendingCount, activeCount, completedTodayCount, completedMonthCount }) => {
   const stats = [
-    { title: 'Pending Orders', value: pendingCount, icon: Clock, color: 'text-orange-600', iconColor: 'text-orange-500' },
-    { title: 'Ready for Pickup', value: activeCount, icon: ShoppingBag, color: 'text-blue-600', iconColor: 'text-blue-500' },
-    { title: 'Completed Today', value: completedTodayCount, icon: CheckCircle, color: 'text-green-600', iconColor: 'text-green-500' },
-    { title: 'Completed This Month', value: completedMonthCount, icon: CalendarCheck, color: 'text-purple-600', iconColor: 'text-purple-500' },
+    { title: 'Pending Orders', value: pendingCount, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50', iconColor: 'text-orange-500' },
+    { title: 'In Progress', value: activeCount, icon: ShoppingBag, color: 'text-blue-600', bg: 'bg-blue-50', iconColor: 'text-blue-500' },
+    { title: 'Served Today', value: completedTodayCount, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', iconColor: 'text-green-500' },
+    { title: 'Month Total', value: completedMonthCount, icon: CalendarCheck, color: 'text-purple-600', bg: 'bg-purple-50', iconColor: 'text-purple-500' },
   ];
 
   return (
@@ -35,82 +35,23 @@ const StatsCards = ({ pendingCount, activeCount, completedTodayCount, completedM
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.1 }}
-      className="mb-8"
+      className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
     >
-      {/* Store Status Toggles */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Store Status</h2>
-          <p className="text-gray-500 text-sm">Manage your store's availability instantly</p>
-        </div>
-        <div className="flex flex-wrap gap-8 justify-center md:justify-end">
-
-          {/* Active Meal Time Selector */}
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden md:block">
-              <Label className="font-semibold block">Meal Time</Label>
-              <span className="text-xs text-gray-500">Currently serving</span>
+      {stats.map((stat, index) => (
+        <Card key={index} className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{stat.title}</p>
+              <p className={`text-3xl font-extrabold ${stat.color}`}>
+                {Number(stat.value || 0).toFixed(0)}
+              </p>
             </div>
-            <Select
-              value={storeSettings?.active_meal_time}
-              onValueChange={(val) => onToggleSetting('active_meal_time', val)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Select meal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Breakfast">
-                  <div className="flex items-center gap-2"><Coffee className="w-4 h-4 text-amber-600" /> Breakfast</div>
-                </SelectItem>
-                <SelectItem value="Lunch">
-                  <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-orange-600" /> Lunch</div>
-                </SelectItem>
-                <SelectItem value="Dinner">
-                  <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-indigo-600" /> Dinner</div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="h-10 w-px bg-gray-200 hidden md:block"></div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <Label htmlFor="store-open" className="font-semibold block">Store Open</Label>
-              <span className="text-xs text-gray-500">{storeSettings?.is_open ? "Online" : "Offline"}</span>
+            <div className={`p-3 rounded-xl ${stat.bg}`}>
+              <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
             </div>
-            <Switch
-              id="store-open"
-              checked={storeSettings?.is_open}
-              onCheckedChange={(val) => onToggleSetting('is_open', val)}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <Label htmlFor="accepting-orders" className="font-semibold block">Accepting Orders</Label>
-              <span className="text-xs text-gray-500">{storeSettings?.accepting_orders ? "Yes" : "No"}</span>
-            </div>
-            <Switch
-              id="accepting-orders"
-              checked={storeSettings?.accepting_orders}
-              onCheckedChange={(val) => onToggleSetting('accepting_orders', val)}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <StatCard
-            key={index}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            colorClass={stat.color}
-            iconColorClass={stat.iconColor}
-          />
-        ))}
-      </div>
+          </CardContent>
+        </Card>
+      ))}
     </motion.div>
   );
 };

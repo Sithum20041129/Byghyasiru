@@ -31,7 +31,9 @@ if ($userRole !== 'customer') {
 }
 
 // ✅ Read request body first to get merchant_id
-$data = json_decode(file_get_contents("php://input"), true);
+$rawData = file_get_contents("php://input");
+$data = json_decode($rawData, true);
+
 if (!$data || !isset($data['merchant_id'])) {
     send_json(["success" => false, "message" => "Invalid input: merchant_id missing"], 400);
     exit;

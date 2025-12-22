@@ -8,9 +8,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "@/components/merchant/DashboardHeader";
 import StatsCards from "@/components/merchant/StatsCards";
+import StoreControls from "@/components/merchant/StoreControls"; // ✅ New Import
 import OrdersTab from "@/components/merchant/OrdersTab";
 import StoreSettings from "./Merchant/StoreSettings";
-import MenuPricing from "./Merchant/MenuPricing";  // ← IMPORT ADDED HERE
+import MenuPricing from "./Merchant/MenuPricing";
 
 const MerchantDashboard = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -167,13 +168,18 @@ const MerchantDashboard = () => {
       <div className="max-w-7xl mx-auto">
         <DashboardHeader storeName={user?.storeName} onLogout={handleLogout} />
 
+        {/* ✅ New Store Controls Component */}
+        <StoreControls
+          storeSettings={storeSettings}
+          onToggleSetting={toggleSetting}
+        />
+
+        {/* ✅ Streamlined Stats Cards */}
         <StatsCards
           pendingCount={pendingOrders.length}
           activeCount={activeOrders.length}
           completedTodayCount={completedOrdersToday}
           completedMonthCount={completedOrdersThisMonth}
-          storeSettings={storeSettings}
-          onToggleSetting={toggleSetting}
         />
 
         <motion.div

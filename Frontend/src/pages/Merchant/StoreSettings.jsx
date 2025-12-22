@@ -3,9 +3,14 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Clock, Plus, X } from "lucide-react";
+import {
+  Clock, Plus, X, Store, Timer, Layers,
+  Save, RotateCcw, AlertTriangle, Info
+} from "lucide-react";
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle
+} from "@/components/ui/card";
 
 export default function StoreSettings() {
   const [dailyLimit, setDailyLimit] = useState(50);
@@ -31,7 +36,6 @@ export default function StoreSettings() {
       const res = await fetch('/api/merchant/get_settings.php', { credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
-        if (data.debug) console.log("Store Settings Debug:", data.debug);
         setDailyLimit(data.order_limit || 50);
         setClosingTime(data.closing_time || "22:00");
         setBreakfastCutoff(data.breakfast_cutoff || "");
@@ -39,7 +43,6 @@ export default function StoreSettings() {
         setDinnerCutoff(data.dinner_cutoff || "");
         setPortions(data.portions || []);
 
-        // New status logic
         setIsAutoPaused(data.auto_disabled || false);
         setActiveMeal(data.active_meal_time || "Lunch");
         setServerTime(data.server_time || "");
@@ -67,9 +70,8 @@ export default function StoreSettings() {
       });
       const data = await res.json();
       if (data.ok) {
-        toast.success("Settings saved!");
-        // Reload to recalculate auto-pause status with new times
-        loadSettings();
+        toast.success("Settings saved successfully!");
+        loadSettings(); // Reload to sync server calculations
       } else {
         toast.error(data.error || "Save failed");
       }
@@ -96,148 +98,205 @@ export default function StoreSettings() {
   };
 
   return (
-    <div className="p-6 space-y-8 bg-white rounded-2xl shadow-lg">
-      <div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-4m-6 0H5a2 2 0 002-2v-1" />
-            </svg>
-            Store Settings
-          </h1>
-          <Button variant="outline" size="sm" onClick={loadSettings} disabled={loading}>
-            {loading ? "Loading..." : "Refresh Data"}
+    <div className="max-w-6xl mx-auto space-y-6 pb-24 md:pb-10 p-4 md:p-6">
+
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Store Settings</h1>
+          <p className="text-gray-500 mt-1 text-sm">Configure your operational limits and schedule.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={loadSettings} disabled={loading} className="gap-2">
+            <RotateCcw className="w-4 h-4 text-gray-500" />
+            <span className="hidden sm:inline">Reset</span>
+          </Button>
+          <Button onClick={saveSettings} disabled={loading} className="bg-orange-600 hover:bg-orange-700 gap-2 shadow-md shadow-orange-100">
+            <Save className="w-4 h-4" />
+            {loading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
-        <p className="text-sm text-gray-600">Manage your store availability, order limits, and university affiliations.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <div>
-            <Label>Max Pre-Orders Per Meal</Label>
-            <Input
-              type="number"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              min="1"
-              className="mt-1"
-            />
-            <p className="text-sm text-gray-600 mt-1">Maximum allowed orders for each meal period (resets automatically)</p>
+      {/* --- ALERTS --- */}
+      {isAutoPaused && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 px-5 py-4 rounded-xl flex items-start gap-4 shadow-sm animate-in slide-in-from-top-2">
+          <div className="bg-amber-100 p-2 rounded-full flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
           </div>
+          <div>
+            <h4 className="font-bold text-base">Orders Auto-Paused</h4>
+            <p className="text-sm mt-1 text-amber-800 leading-relaxed">
+              The cutoff time for <span className="font-bold">{activeMeal}</span> has passed (Server Time: {serverTime}).
+              New incoming orders are currently disabled. Extend the cutoff time below to resume.
+            </p>
+          </div>
+        </div>
+      )}
 
-          {isAutoPaused && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md flex items-start gap-3">
-              <Clock className="w-5 h-5 mt-0.5 flex-shrink-0" />
+      <div className="grid lg:grid-cols-3 gap-6">
+
+        {/* LEFT COLUMN (2/3 width) */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* 1. GENERAL OPERATIONS */}
+          <Card className="border-gray-100 shadow-sm overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-50 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <Store className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">General Operations</CardTitle>
+                  <CardDescription>Basic store limits and visibility.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 grid sm:grid-cols-2 gap-6">
               <div>
-                <p className="font-semibold text-sm">Orders Auto-Paused</p>
-                <p className="text-xs mt-1">
-                  The cutoff time for <strong>{activeMeal}</strong> has passed based on server time ({serverTime}).
-                  New orders are disabled until the next meal period or if you extend the cutoff time.
+                <Label className="text-gray-700 font-semibold mb-2 block">Max Pre-Orders Per Meal</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={dailyLimit}
+                    onChange={(e) => setDailyLimit(e.target.value)}
+                    min="1"
+                    className="pl-3 h-11 text-lg"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                  <Info className="w-3 h-3" /> Resets every meal period
                 </p>
               </div>
-            </div>
-          )}
-
-          <div>
-            <Label>Closing Time</Label>
-            <div className="relative mt-1">
-              <Input
-                type="time"
-                value={closingTime}
-                onChange={(e) => setClosingTime(e.target.value)}
-                className="pl-10"
-              />
-              <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-            </div>
-            <p className="text-sm text-gray-600 mt-1">Display closing time to customers</p>
-          </div>
-
-          <div className="pt-4 border-t">
-            <h3 className="font-medium mb-3">Meal Order Cut-off Times</h3>
-            <p className="text-sm text-gray-500 mb-4">Orders will automatically stop at these times for each meal period.</p>
-
-            <div className="space-y-4">
-              <div>
-                <Label>Breakfast Cut-off</Label>
-                <div className="relative mt-1">
-                  <Input
-                    type="time"
-                    value={breakfastCutoff}
-                    onChange={(e) => setBreakfastCutoff(e.target.value)}
-                    className="pl-10"
-                  />
-                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
 
               <div>
-                <Label>Lunch Cut-off</Label>
-                <div className="relative mt-1">
+                <Label className="text-gray-700 font-semibold mb-2 block">Display Closing Time</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
                   <Input
                     type="time"
-                    value={lunchCutoff}
-                    onChange={(e) => setLunchCutoff(e.target.value)}
-                    className="pl-10"
+                    value={closingTime}
+                    onChange={(e) => setClosingTime(e.target.value)}
+                    className="pl-10 h-11"
                   />
-                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 </div>
+                <p className="text-xs text-gray-400 mt-2">Shown to customers on app</p>
               </div>
+            </CardContent>
+          </Card>
 
-              <div>
-                <Label>Dinner Cut-off</Label>
-                <div className="relative mt-1">
-                  <Input
-                    type="time"
-                    value={dinnerCutoff}
-                    onChange={(e) => setDinnerCutoff(e.target.value)}
-                    className="pl-10"
-                  />
-                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          {/* 2. AUTO-CUTOFF TIMERS */}
+          <Card className="border-gray-100 shadow-sm overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-50 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <Timer className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Auto-Close Timers</CardTitle>
+                  <CardDescription>Orders automatically stop at these times for each meal.</CardDescription>
                 </div>
               </div>
-            </div>
-          </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid sm:grid-cols-3 gap-5">
+                <div className="space-y-2">
+                  <Label className="text-gray-600 text-sm font-medium">Breakfast Ends</Label>
+                  <div className="relative">
+                    <Input
+                      type="time"
+                      value={breakfastCutoff}
+                      onChange={(e) => setBreakfastCutoff(e.target.value)}
+                      className="pl-8 bg-purple-50/30 border-purple-100 focus:border-purple-300"
+                    />
+                    <Clock className="absolute left-2.5 top-3 w-4 h-4 text-purple-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-600 text-sm font-medium">Lunch Ends</Label>
+                  <div className="relative">
+                    <Input
+                      type="time"
+                      value={lunchCutoff}
+                      onChange={(e) => setLunchCutoff(e.target.value)}
+                      className="pl-8 bg-orange-50/30 border-orange-100 focus:border-orange-300"
+                    />
+                    <Clock className="absolute left-2.5 top-3 w-4 h-4 text-orange-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-600 text-sm font-medium">Dinner Ends</Label>
+                  <div className="relative">
+                    <Input
+                      type="time"
+                      value={dinnerCutoff}
+                      onChange={(e) => setDinnerCutoff(e.target.value)}
+                      className="pl-8 bg-indigo-50/30 border-indigo-100 focus:border-indigo-300"
+                    />
+                    <Clock className="absolute left-2.5 top-3 w-4 h-4 text-indigo-400" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="space-y-4">
-          <Label>Add Portion Categories</Label>
-          <div className="flex gap-2">
-            <Input
-              value={newPortion}
-              onChange={(e) => setNewPortion(e.target.value)}
-              placeholder="e.g., Small, Large"
-              onKeyPress={(e) => e.key === 'Enter' && addPortion()}
-            />
-            <Button onClick={addPortion} size="icon">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+        {/* RIGHT COLUMN (1/3 width) */}
+        <div className="space-y-6">
 
-          <div className="flex flex-wrap gap-2">
-            {portions.length === 0 ? (
-              <p className="text-sm text-gray-500">No portions added</p>
-            ) : (
-              portions.map((p) => (
-                <div key={p} className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                  {p}
-                  <button onClick={() => removePortion(p)}>
-                    <X className="w-3 h-3" />
-                  </button>
+          {/* 3. PORTION MANAGER */}
+          <Card className="border-gray-100 shadow-sm h-full flex flex-col">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-50 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-100 p-2 rounded-lg">
+                  <Layers className="w-5 h-5 text-emerald-600" />
                 </div>
-              ))
-            )}
-          </div>
+                <div>
+                  <CardTitle className="text-lg">Portions</CardTitle>
+                  <CardDescription>Manage meal sizes.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 flex-1 flex flex-col">
+              <div className="flex gap-2 mb-6">
+                <Input
+                  value={newPortion}
+                  onChange={(e) => setNewPortion(e.target.value)}
+                  placeholder="e.g. Small"
+                  onKeyPress={(e) => e.key === 'Enter' && addPortion()}
+                  className="flex-1"
+                />
+                <Button onClick={addPortion} size="icon" className="bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-xs uppercase text-gray-400 font-bold tracking-wider">Active Portions</Label>
+                <div className="flex flex-wrap gap-2">
+                  {portions.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic py-2">No portions added yet.</p>
+                  ) : (
+                    portions.map((p) => (
+                      <div key={p} className="flex items-center gap-2 pl-3 pr-1 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm shadow-sm group hover:border-red-200 transition-colors">
+                        <span className="font-medium">{p}</span>
+                        <button
+                          onClick={() => removePortion(p)}
+                          className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-md transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <Button
-        onClick={saveSettings}
-        disabled={loading}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-      >
-        {loading ? "Saving..." : "Save Settings"}
-      </Button>
     </div>
   );
 }

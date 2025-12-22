@@ -1,5 +1,5 @@
 // src/pages/MerchantDashboard.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
@@ -8,29 +8,31 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardHeader from "@/components/merchant/DashboardHeader";
 import StatsCards from "@/components/merchant/StatsCards";
-import StoreControls from "@/components/merchant/StoreControls"; // ✅ New Import
+import StoreControls from "@/components/merchant/StoreControls";
 import OrdersTab from "@/components/merchant/OrdersTab";
 import StoreSettings from "./Merchant/StoreSettings";
 import MenuPricing from "./Merchant/MenuPricing";
+import { ClipboardList, UtensilsCrossed, Settings, Store } from "lucide-react";
 
 const MerchantDashboard = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [activeOrders, setActiveOrders] = useState([]);
-  const [completedOrdersToday, setCompletedOrdersToday] = useState(0);
-  const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState(0);
+  const [completedOrdersToday, setCompletedOrdersToday] = useState([]);
+  const [completedOrdersThisMonth, setCompletedOrdersThisMonth] = useState([]);
   const [storeSettings, setStoreSettings] = useState({
     is_open: false,
     accepting_orders: false,
     active_meal_time: 'Lunch'
   });
+
+  const [activeTab, setActiveTab] = useState("orders");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const { user, logout, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth check
+    if (authLoading) return;
     if (!user || user.role !== 'merchant') {
       navigate('/login');
       return;
@@ -57,22 +59,17 @@ const MerchantDashboard = () => {
 
   const loadOrders = async () => {
     setLoading(true);
-    setError(false);
     try {
       const res = await fetch('/api/merchant/orders.php', { credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
         setPendingOrders(data.pending || []);
         setActiveOrders(data.active || []);
-        setCompletedOrdersToday(data.completedToday || 0);
-        setCompletedOrdersThisMonth(data.completedThisMonth || 0);
-      } else {
-        setError(true);
-        toast({ title: 'Error', description: data.error || 'Failed to load orders', variant: 'destructive' });
+        setCompletedOrdersToday(data.completedToday || []);
+        setCompletedOrdersThisMonth(data.completedThisMonth || []);
       }
     } catch (err) {
-      setError(true);
-      toast({ title: 'Network Error', description: err.message, variant: 'destructive' });
+      // silent fail
     } finally {
       setLoading(false);
     }
@@ -99,9 +96,7 @@ const MerchantDashboard = () => {
   };
 
   const toggleSetting = async (key, value) => {
-    // Optimistic update
     setStoreSettings(prev => ({ ...prev, [key]: value }));
-
     try {
       const res = await fetch('/api/merchant/settings.php', {
         method: 'POST',
@@ -110,18 +105,28 @@ const MerchantDashboard = () => {
         body: JSON.stringify({ [key]: value })
       });
       const data = await res.json();
-
-      if (!data.ok) {
-        // Revert
-        setStoreSettings(prev => ({ ...prev, [key]: !value }));
-        toast({ title: 'Error', description: data.error || 'Failed to update setting', variant: 'destructive' });
-      } else {
-        toast({ title: 'Success', description: 'Store status updated' });
-      }
+      if (!data.ok) throw new Error(data.error);
+      toast({ title: 'Success', description: 'Updated successfully' });
     } catch (err) {
-      // Revert
       setStoreSettings(prev => ({ ...prev, [key]: !value }));
-      toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to save setting', variant: 'destructive' });
+    }
+  };
+
+  const updateMealTime = async (value) => {
+    setStoreSettings(prev => ({ ...prev, active_meal_time: value }));
+    try {
+      const res = await fetch('/api/merchant/settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ active_meal_time: value })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      toast({ title: 'Success', description: `Meal time set to ${value}` });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update meal time', variant: 'destructive' });
     }
   };
 
@@ -134,67 +139,61 @@ const MerchantDashboard = () => {
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading dashboard...</div>;
-  }
+  const MobileNavItem = ({ value, icon: Icon, label }) => (
+    <button
+      onClick={() => setActiveTab(value)}
+      className={`flex flex-col items-center justify-center w-full py-2 transition-colors duration-200 ${activeTab === value ? "text-orange-600" : "text-gray-500 hover:text-gray-700"
+        }`}
+    >
+      <Icon className={`w-6 h-6 mb-1 ${activeTab === value ? "fill-current" : ""}`} strokeWidth={activeTab === value ? 2.5 : 2} />
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-red-50 rounded-lg shadow-md text-center">
-        <h2 className="text-xl font-bold mb-2">⚠️ Error Loading Dashboard</h2>
-        <p className="text-gray-600 mb-4">
-          The server sent an invalid response. Please check the backend logs.
-        </p>
-        <button
-          onClick={loadOrders}
-          className="px-4 py-2 bg-red-500 text-white rounded"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center items-center h-screen animate-pulse">Loading dashboard...</div>;
 
   return (
-    <div className="min-h-screen p-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24 md:pb-8 font-inter">
       <Helmet>
         <title>Merchant Dashboard - QuickMeal</title>
-        <meta
-          name="description"
-          content="Manage your restaurant orders, menu, and store settings on QuickMeal."
-        />
       </Helmet>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-4">
         <DashboardHeader storeName={user?.storeName} onLogout={handleLogout} />
 
-        {/* ✅ New Store Controls Component */}
-        <StoreControls
-          storeSettings={storeSettings}
-          onToggleSetting={toggleSetting}
-        />
+        <div className="mt-6">
+          <StoreControls
+            settings={storeSettings}
+            onToggle={toggleSetting}
+            onUpdateMealTime={updateMealTime}
+          />
+        </div>
 
-        {/* ✅ Streamlined Stats Cards */}
-        <StatsCards
-          pendingCount={pendingOrders.length}
-          activeCount={activeOrders.length}
-          completedTodayCount={completedOrdersToday}
-          completedMonthCount={completedOrdersThisMonth}
-        />
+        {/* Stats only visible on Desktop */}
+        <div className="mt-6 mb-8 hidden md:block">
+          <StatsCards
+            pendingCount={pendingOrders.length}
+            activeCount={activeOrders.length}
+            completedTodayCount={completedOrdersToday.length}
+            completedMonthCount={completedOrdersThisMonth.length}
+          />
+        </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.4 }}
         >
-          <Tabs defaultValue="orders" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+
+            {/* ✅ FIXED: Desktop Tabs are now STICKY */}
+            <TabsList className="hidden md:grid w-full grid-cols-3 bg-white/95 backdrop-blur-sm p-1 border rounded-xl shadow-sm sticky top-4 z-50 transition-all">
               <TabsTrigger value="orders">Orders</TabsTrigger>
               <TabsTrigger value="menu">Menu & Pricing</TabsTrigger>
               <TabsTrigger value="settings">Store Settings</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="orders">
+            <TabsContent value="orders" className="focus:outline-none">
               <OrdersTab
                 pendingOrders={pendingOrders}
                 activeOrders={activeOrders}
@@ -202,15 +201,24 @@ const MerchantDashboard = () => {
               />
             </TabsContent>
 
-            <TabsContent value="menu">
-              <MenuPricing />  {/* ← CHANGED HERE: REPLACED AddFoodForm with MenuPricing */}
+            <TabsContent value="menu" className="focus:outline-none">
+              <MenuPricing />
             </TabsContent>
 
-            <TabsContent value="settings">
+            <TabsContent value="settings" className="focus:outline-none">
               <StoreSettings />
             </TabsContent>
           </Tabs>
         </motion.div>
+      </div>
+
+      {/* Mobile Bottom Navigation (Unchanged) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden z-50 safe-area-pb">
+        <div className="flex justify-around items-center px-1">
+          <MobileNavItem value="orders" icon={ClipboardList} label="Orders" />
+          <MobileNavItem value="menu" icon={UtensilsCrossed} label="Menu" />
+          <MobileNavItem value="settings" icon={Store} label="Store" />
+        </div>
       </div>
     </div>
   );

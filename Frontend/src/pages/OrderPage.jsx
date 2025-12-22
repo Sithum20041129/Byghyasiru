@@ -1,6 +1,6 @@
 // src/pages/OrderPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -379,70 +379,91 @@ const OrderPage = () => {
   const canSelectSides = selectedMain && selectedPortion;
 
   return (
-    <div className="min-h-screen p-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-32">
       <Helmet><title>Order from {store.storeName} - QuickMeal</title></Helmet>
 
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <Link to="/customer" className="inline-flex items-center text-orange-600 hover:text-orange-700 mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+      {/* Header Banner */}
+      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link to="/customer" className="inline-flex items-center text-gray-500 hover:text-orange-600 transition-colors">
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            <span className="hidden sm:inline">Back</span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">{store.storeName}</h1>
-          <p className="text-gray-600">{store.storeAddress}</p>
-          {settings?.activeMealTime && (
-            <div className="mt-2 inline-block bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
-              Now Serving: {settings.activeMealTime}
-            </div>
-          )}
+          <div className="text-center">
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">{store.storeName}</h1>
+            <p className="text-xs text-gray-500">{store.storeAddress}</p>
+          </div>
+          <div className="w-10"></div> {/* Spacer balance */}
         </div>
+        {settings?.activeMealTime && (
+          <div className="bg-orange-50 border-t border-orange-100 py-1.5 text-center">
+            <span className="text-xs font-medium text-orange-700 uppercase tracking-wider">
+              Now Serving: {settings.activeMealTime}
+            </span>
+          </div>
+        )}
+      </div>
 
-        <div className="space-y-8">
-          {/* 1. Main Meal Selection */}
-          <section className="bg-white p-6 rounded-xl shadow-sm border">
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">1</span>
-              Select Main Meal
-            </h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {mainMeals.map(food => (
-                <div
-                  key={food.id}
-                  onClick={() => { setSelectedMain(food); setSelectedPortion(null); }}
-                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${selectedMain?.id === food.id ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-orange-200'
-                    }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-semibold">{food.name}</h3>
-                    {selectedMain?.id === food.id && <Check className="w-5 h-5 text-orange-600" />}
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+
+        {/* 1. Main Meal Selection */}
+        <section>
+          <div className="flex items-center mb-6">
+            <div className="w-8 h-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold mr-3 shadow-md border-2 border-white ring-2 ring-orange-100">1</div>
+            <h2 className="text-2xl font-bold text-gray-800">Choose Your Meal</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mainMeals.map(food => (
+              <motion.div
+                key={food.id}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => { setSelectedMain(food); setSelectedPortion(null); }}
+                className={`relative cursor-pointer rounded-xl border-2 p-5 shadow-sm transition-all duration-200 overflow-hidden ${selectedMain?.id === food.id
+                  ? 'border-orange-500 bg-white ring-4 ring-orange-100 shadow-md'
+                  : 'border-transparent bg-white hover:shadow-md'
+                  }`}
+              >
+                <div className="flex justify-between items-start z-10 relative">
+                  <div>
+                    <h3 className={`font-bold text-lg mb-1 ${selectedMain?.id === food.id ? 'text-orange-700' : 'text-gray-900'}`}>{food.name}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{food.description || "Refueling and delicious."}</p>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{food.description}</p>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedMain?.id === food.id ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-200'
+                    }`}>
+                    {selectedMain?.id === food.id && <Check className="w-3.5 h-3.5" />}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
+                {selectedMain?.id === food.id && (
+                  <div className="absolute inset-0 bg-orange-50 opacity-20 pointer-events-none" />
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </section>
 
-          {/* 2. Portion Selection */}
+        {/* 2. Portion Selection */}
+        <AnimatePresence mode="wait">
           {selectedMain && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-xl shadow-sm border"
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
             >
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">2</span>
-                Select Portion
-              </h2>
-              <RadioGroup value={selectedPortion} onValueChange={setSelectedPortion} className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="flex items-center mb-6">
+                <div className="w-8 h-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold mr-3 shadow-md border-2 border-white ring-2 ring-orange-100">2</div>
+                <h2 className="text-2xl font-bold text-gray-800">Select Portion</h2>
+              </div>
+
+              <RadioGroup value={selectedPortion} onValueChange={setSelectedPortion} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {selectedMain.portion_prices && selectedMain.portion_prices.length > 0 ? (
                   selectedMain.portion_prices.map((pp) => {
-                    // Determine display price
                     let displayPrice = parseFloat(pp.price);
                     if (primaryNonVegCurry) {
-                      // Use non-veg curry portion price if available
                       const nvPrice = primaryNonVegCurry.prices?.[pp.portion_name];
-                      if (nvPrice !== undefined) {
-                        displayPrice = parseFloat(nvPrice);
-                      }
+                      if (nvPrice !== undefined) displayPrice = parseFloat(nvPrice);
                     }
 
                     return (
@@ -450,10 +471,13 @@ const OrderPage = () => {
                         <RadioGroupItem value={pp.portion_name} id={`portion-${pp.portion_name}`} className="peer sr-only" />
                         <Label
                           htmlFor={`portion-${pp.portion_name}`}
-                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:text-orange-600 cursor-pointer"
+                          className="flex flex-col items-center justify-between rounded-xl border-2 border-gray-100 bg-white p-4 h-full hover:border-orange-200 hover:bg-orange-50 transition-all cursor-pointer peer-data-[state=checked]:border-orange-600 peer-data-[state=checked]:bg-orange-50 peer-data-[state=checked]:shadow-md relative overflow-hidden group"
                         >
-                          <span className="font-semibold">{pp.portion_name}</span>
-                          <span className="text-sm mt-1">Rs {displayPrice.toFixed(2)}</span>
+                          <span className="font-bold text-gray-700 group-hover:text-orange-700 peer-data-[state=checked]:text-orange-700">{pp.portion_name}</span>
+                          <span className="text-sm font-medium text-gray-500 mt-2 group-hover:text-orange-600 peer-data-[state=checked]:text-orange-600">Rs {displayPrice.toFixed(2)}</span>
+                          <div className="absolute top-2 right-2 opacity-0 peer-data-[state=checked]:opacity-100 transition-opacity">
+                            <Check className="w-4 h-4 text-orange-600" />
+                          </div>
                         </Label>
                       </div>
                     );
@@ -463,153 +487,176 @@ const OrderPage = () => {
                     <RadioGroupItem value="Standard" id="portion-standard" className="peer sr-only" />
                     <Label
                       htmlFor="portion-standard"
-                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:text-orange-600 cursor-pointer"
+                      className="flex flex-col items-center justify-between rounded-xl border-2 border-gray-100 bg-white p-4 hover:border-orange-200 hover:bg-orange-50 transition-all cursor-pointer peer-data-[state=checked]:border-orange-600 peer-data-[state=checked]:bg-orange-50 peer-data-[state=checked]:shadow-md"
                     >
-                      <span className="font-semibold">Standard</span>
-                      <span className="text-sm mt-1">Rs {(parseFloat(selectedMain.price) || 0).toFixed(2)}</span>
+                      <span className="font-bold text-gray-700">Standard</span>
+                      <span className="text-sm font-medium text-gray-500 mt-2">Rs {(parseFloat(selectedMain.price) || 0).toFixed(2)}</span>
                     </Label>
                   </div>
                 )}
               </RadioGroup>
             </motion.section>
           )}
+        </AnimatePresence>
 
-          {/* 3. Curries & Gravies */}
-          <section className={`bg-white p-6 rounded-xl shadow-sm border transition-opacity ${!canSelectSides ? 'opacity-50 pointer-events-none' : ''}`}>
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">3</span>
-              Add Curries & Sides
+        {/* 3. Curries & Gravies */}
+        <section className={`transition-all duration-500 ${!canSelectSides ? 'opacity-40 grayscale pointer-events-none filter blur-[1px]' : 'opacity-100'}`}>
+          <div className="flex items-center mb-6">
+            <div className="w-8 h-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold mr-3 shadow-md border-2 border-white ring-2 ring-orange-100">3</div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-800">Customize Your Plate</h2>
               {settings?.freeVegCurries > 0 && (
-                <span className="ml-3 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                  First {settings.freeVegCurries} Veg Curries Free!
-                </span>
+                <p className="text-sm text-green-600 font-medium mt-1">
+                  ✨ First {settings.freeVegCurries} Veg Curries are FREE
+                </p>
               )}
-            </h2>
+            </div>
+          </div>
 
-            {!canSelectSides && (
-              <div className="flex items-center text-amber-600 bg-amber-50 p-3 rounded-lg mb-4">
-                <AlertCircle className="w-4 h-4 mr-2" />
-                Please select a main meal and portion first.
-              </div>
-            )}
+          {!canSelectSides && (
+            <div className="text-center py-8 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 mb-8">
+              <p className="text-gray-500 font-medium">Select a main meal and portion to unlock add-ons</p>
+            </div>
+          )}
 
-            <div className="space-y-6">
-              {[
-                { title: "Curries", items: curries },
-                { title: "Gravies", items: gravies },
-                { title: "Others", items: others }
-              ].map(group => group.items.length > 0 && (
-                <div key={group.title}>
-                  <h3 className="font-semibold text-gray-700 mb-3">{group.title}</h3>
-                  <div className="space-y-2">
-                    {group.items.map(food => {
-                      // Determine Price to Display
-                      let priceDisplay = `Rs ${(parseFloat(food.price) || 0).toFixed(2)}`;
+          <div className="space-y-8">
+            {[
+              { title: "Curries", items: curries, icon: "🥘" },
+              { title: "Gravies & Sauces", items: gravies, icon: "🥣" },
+              { title: "Extras", items: others, icon: "🥤" }
+            ].map(group => group.items.length > 0 && (
+              <div key={group.title} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 className="flex items-center text-lg font-bold text-gray-800 mb-4">
+                  <span className="mr-2 text-xl">{group.icon}</span> {group.title}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.items.map(food => {
+                    let priceDisplay = `Rs ${(parseFloat(food.price) || 0).toFixed(0)}`;
+                    let isFree = false;
+                    let isIncluded = false;
 
-                      if (isGravy(food)) {
-                        priceDisplay = "Free";
-                      } else if (food.is_veg == 1) {
-                        // Veg Curry
-                        // Complex to show exact price because it depends on count.
-                        // Just show standard price? Or "Free / Rs X"?
-                        // Let's keep standard price for now.
-                      } else {
-                        // Non-Veg Curry
-                        if (food.id === primaryNonVegCurry?.id) {
-                          priceDisplay = <span className="text-orange-600 font-medium">Included in Meal Price</span>;
-                        } else {
-                          // Secondary
-                          if (food.is_divisible == 1) {
-                            // Own Price
-                            priceDisplay = `Rs ${(parseFloat(food.price) || 0).toFixed(2)}`;
-                          } else {
-                            // Veg Curry Price
-                            const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
-                            priceDisplay = `Rs ${vegPrice.toFixed(2)}`;
-                          }
-                        }
-                      }
+                    if (isGravy(food)) {
+                      priceDisplay = "FREE";
+                      isFree = true;
+                    } else if (food.id === primaryNonVegCurry?.id) {
+                      priceDisplay = "Included";
+                      isIncluded = true;
+                    } else if (food.is_veg == 0 && food.is_divisible == 0) {
+                      const vegPrice = parseFloat(settings?.vegCurryPrice || 0);
+                      priceDisplay = `Rs ${vegPrice.toFixed(0)}`;
+                    }
 
-                      return (
-                        <div
-                          key={food.id}
-                          onClick={() => {
-                            const current = selectedCurries[food.id] || 0;
-                            if (current > 0) {
-                              // Deselect
-                              toggleCurry(food.id, false);
-                            } else {
-                              // Select
-                              toggleCurry(food.id, true);
-                            }
-                          }}
-                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${selectedCurries[food.id] ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-orange-200 hover:bg-gray-50'
-                            }`}
-                        >
-                          <div>
-                            <div className="font-medium flex items-center gap-2">
+                    const isSelected = selectedCurries[food.id] > 0;
+
+                    return (
+                      <motion.div
+                        key={food.id}
+                        layout
+                        onClick={() => !isSelected && toggleCurry(food.id, true)}
+                        className={`relative border rounded-xl overflow-hidden transition-all ${isSelected
+                          ? 'border-orange-500 bg-orange-50/50 shadow-md ring-1 ring-orange-200'
+                          : 'border-gray-100 bg-white hover:border-gray-300 hover:shadow-sm cursor-pointer'
+                          }`}
+                      >
+                        <div className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="font-semibold text-gray-800 pr-2 leading-tight">
                               {food.name}
-                              {food.is_veg == 1 && <Badge variant="outline" className="text-green-600 border-green-200 text-[10px]">Veg</Badge>}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            {food.is_veg == 1 && (
+                              <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" title="Vegetarian" />
+                            )}
+                          </div>
+
+                          <div className="flex items-end justify-between mt-2">
+                            <div className={`text-sm font-medium ${isFree ? 'text-green-600' : isIncluded ? 'text-orange-600' : 'text-gray-500'}`}>
                               {priceDisplay}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {selectedCurries[food.id] ? (
-                              food.is_divisible == 1 ? (
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    variant="outline" size="icon" className="h-8 w-8 bg-white"
+
+                            {isSelected ? (
+                              <div className="flex items-center gap-2 bg-white rounded-lg p-0.5 shadow-sm border border-gray-200" onClick={(e) => e.stopPropagation()}>
+                                {food.is_divisible == 1 ? (
+                                  <>
+                                    <button
+                                      className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, false); }}
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-5 text-center font-bold text-gray-800 text-sm">{selectedCurries[food.id]}</span>
+                                    <button
+                                      className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, true); }}
+                                    >
+                                      +
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    className="w-7 h-7 flex items-center justify-center text-orange-600 bg-orange-50 rounded-md"
                                     onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, false); }}
                                   >
-                                    -
-                                  </Button>
-                                  <span className="w-6 text-center font-medium">{selectedCurries[food.id]}</span>
-                                  <Button
-                                    variant="outline" size="icon" className="h-8 w-8 bg-white"
-                                    onClick={(e) => { e.stopPropagation(); toggleCurry(food.id, true); }}
-                                  >
-                                    +
-                                  </Button>
-                                </div>
-                              ) : (
-                                <Check className="w-5 h-5 text-orange-600" />
-                              )
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             ) : (
-                              <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                              <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-300 group-hover:text-orange-500">
+                                <span className="text-xl leading-none">+</span>
+                              </div>
                             )}
                           </div>
                         </div>
-                      )
-                    })
-                    }
-                  </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Bottom Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg">
-            <div className="max-w-3xl mx-auto flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Amount</p>
-                <p className="text-2xl font-bold text-orange-600">Rs {totalPrice.toFixed(2)}</p>
               </div>
+            ))}
+          </div>
+        </section>
+
+      </div>
+
+      {/* Modern Floating Bottom Bar */}
+      <AnimatePresence>
+        {canSelectSides && (
+          <motion.div
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4"
+          >
+            <div className="max-w-3xl mx-auto bg-gray-900/90 backdrop-blur-md text-white rounded-2xl shadow-2xl p-4 pl-6 flex items-center justify-between border border-gray-800">
+              <div className="flex flex-col">
+                <span className="text-gray-400 text-xs uppercase tracking-wider font-medium">Estimated Total</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold font-numeric">Rs {totalPrice.toFixed(2)}</span>
+                </div>
+              </div>
+
               <Button
                 onClick={handlePlaceOrder}
                 size="lg"
-                className="bg-orange-600 hover:bg-orange-700 text-white px-8"
-                disabled={!canSelectSides || loading}
+                className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 rounded-xl h-12 shadow-lg shadow-orange-900/20 transition-all transform active:scale-95"
+                disabled={loading}
               >
-                {loading ? "Placing Order..." : "Place Order"}
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    Order Now <ArrowLeft className="w-4 h-4 rotate-180" />
+                  </span>
+                )}
               </Button>
             </div>
-          </div>
-          <div className="h-20"></div> {/* Spacer for fixed bottom bar */}
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

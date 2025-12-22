@@ -1,35 +1,197 @@
+// src/pages/CustomerDashboard.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import {
-  Store, MapPin, LogOut, User, Home, Settings, Coffee, Sun, Moon, Menu, X, ShoppingBag, Receipt
+  Store, MapPin, LogOut, User, Home, ShoppingBag,
+  Coffee, Sun, Moon, Receipt, ChevronRight, Search
 } from 'lucide-react';
+
+// --- COMPONENTS ---
+
+const MobileNav = ({ activeTab, setActiveTab }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Home', icon: Home },
+    { id: 'orders', label: 'Orders', icon: Receipt },
+    { id: 'account', label: 'Account', icon: User },
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-50 md:hidden pb-safe">
+      <div className="flex justify-around items-center h-16">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 ${isActive ? 'text-orange-600' : 'text-gray-400 hover:text-gray-600'
+                }`}
+            >
+              <motion.div
+                whileTap={{ scale: 0.9 }}
+                animate={isActive ? { y: -2 } : { y: 0 }}
+              >
+                <Icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+              </motion.div>
+              <span className="text-[10px] font-medium mt-1">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const StoreCard = ({ store }) => {
+  const isOpen = store.isOpen && store.acceptingOrders;
+
+  const getMealIcon = (time) => {
+    switch (time) {
+      case 'Breakfast': return <Coffee className="w-3.5 h-3.5" />;
+      case 'Lunch': return <Sun className="w-3.5 h-3.5" />;
+      case 'Dinner': return <Moon className="w-3.5 h-3.5" />;
+      default: return <Sun className="w-3.5 h-3.5" />;
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4 }}
+      className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 h-full flex flex-col"
+    >
+      {/* Visual Header / Cover */}
+      <div className={`h-24 sm:h-32 bg-gradient-to-r ${isOpen ? 'from-orange-400 to-orange-600' : 'from-gray-300 to-gray-400'} relative`}>
+        <div className="absolute top-3 right-3">
+          <Badge className={`border-none px-2 py-1 shadow-sm backdrop-blur-md ${isOpen ? 'bg-white/90 text-green-700' : 'bg-black/50 text-white'
+            }`}>
+            {isOpen ? 'Open Now' : 'Closed'}
+          </Badge>
+        </div>
+        {/* Store Icon Circle */}
+        <div className="absolute -bottom-6 left-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-xl shadow-md p-1 flex items-center justify-center">
+            <div className="w-full h-full bg-orange-50 rounded-lg flex items-center justify-center text-orange-500">
+              <Store className="w-6 h-6 sm:w-8 sm:h-8" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5 pt-8 sm:pt-10 flex-1 flex flex-col">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1">
+              {store.storeName}
+            </h3>
+            <div className="flex items-center text-gray-500 text-xs sm:text-sm mt-1">
+              <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+              <span className="truncate max-w-[200px]">{store.storeAddress}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Pills */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+            {getMealIcon(store.activeMealTime)}
+            Serving {store.activeMealTime}
+          </div>
+          {store.rating && (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-50 text-yellow-700 text-xs font-medium">
+              ★ {store.rating}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-auto pt-5">
+          {isOpen ? (
+            <Link to={`/order/${store.id}`} className="block w-full">
+              <Button className="w-full bg-gray-900 group-hover:bg-orange-600 text-white transition-colors rounded-xl h-10 sm:h-11 font-semibold shadow-sm">
+                Order Food
+              </Button>
+            </Link>
+          ) : (
+            <Button disabled className="w-full bg-gray-100 text-gray-400 border border-gray-200 rounded-xl h-10 sm:h-11">
+              Currently Unavailable
+            </Button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const OrderHistoryCard = ({ order }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'preparing':
+      case 'accepted': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'ready': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'cancelled': return 'bg-red-50 text-red-600 border-red-100';
+      default: return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900">{order.store_name}</h4>
+            <p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <Badge variant="outline" className={`border ${getStatusColor(order.status)}`}>
+          {order.status}
+        </Badge>
+      </div>
+
+      <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+        <span className="font-bold text-gray-900">LKR {Number(order.total).toFixed(2)}</span>
+        <Link to={`/receipt/${order.id}`}>
+          <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-8 text-xs font-semibold">
+            View Receipt <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 
 const CustomerDashboard = () => {
   const [stores, setStores] = useState([]);
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, logout, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const loadData = useCallback(async () => {
     if (loading) return;
-
     if (!user || user.role !== 'customer') {
       navigate('/login');
       return;
     }
 
     try {
-      // 1. Fetch Merchants
+      // Fetch Stores
       const resStores = await fetch(`/api/merchant/list.php${user.university_id ? `?university_id=${user.university_id}` : ''}`);
       const dataStores = await resStores.json();
 
@@ -38,347 +200,214 @@ const CustomerDashboard = () => {
         if (user.university_id) {
           merchants = merchants.filter(m => Number(m.university_id) === Number(user.university_id));
         }
-
-        const storesWithSettings = merchants.map(merchant => ({
+        setStores(merchants.map(merchant => ({
           id: merchant.id,
           storeName: merchant.store_name,
           storeAddress: merchant.store_address,
           isOpen: merchant.is_open == 1,
           acceptingOrders: merchant.accepting_orders == 1,
-          orderLimit: merchant.order_limit,
-          closingTime: merchant.closing_time,
           activeMealTime: merchant.active_meal_time || 'Lunch',
-          universityId: merchant.university_id,
-          universityName: merchant.university_name,
-          rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1),
-        }));
-        setStores(storesWithSettings);
-      } else {
-        setStores([]);
+          rating: (Math.random() * (5 - 4) + 4).toFixed(1), // Mock rating for visual
+        })));
       }
 
-      // 2. Fetch Orders
+      // Fetch Orders
       const resOrders = await fetch('/api/orders/list.php');
       const dataOrders = await resOrders.json();
-      if (dataOrders.ok) {
-        setOrders(dataOrders.orders);
-      }
+      if (dataOrders.ok) setOrders(dataOrders.orders);
 
     } catch (err) {
       console.error('Error fetching data:', err);
     }
   }, [user, navigate, loading]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleLogout = () => {
     logout();
-    toast({ title: 'Logged out', description: 'See you next time!' });
     navigate('/');
   };
 
-  const getStoreStatus = (store) => {
-    if (!store.isOpen) return { status: 'Closed', color: 'bg-red-100 text-red-800' };
-    if (!store.acceptingOrders) return { status: 'Busy', color: 'bg-yellow-100 text-yellow-800' };
-    return { status: 'Open', color: 'bg-green-100 text-green-800' };
-  };
-
-  const MealTimeIcon = ({ time }) => {
-    switch (time) {
-      case 'Breakfast': return <Coffee className="w-4 h-4 mr-2 text-amber-600" />;
-      case 'Lunch': return <Sun className="w-4 h-4 mr-2 text-orange-600" />;
-      case 'Dinner': return <Moon className="w-4 h-4 mr-2 text-indigo-600" />;
-      default: return null;
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'pending': return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
-      case 'accepted': return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Accepted</Badge>;
-      case 'ready': return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Ready</Badge>;
-      case 'picked_up':
-      case 'completed': return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>;
-      case 'cancelled': return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Cancelled</Badge>;
-      default: return <Badge variant="outline">{status}</Badge>;
-    }
-  }
-
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading dashboard...</div>;
-  }
+  if (loading) return <div className="flex justify-center items-center h-screen bg-gray-50"><div className="animate-pulse text-orange-500 font-medium">Loading QuickMeal...</div></div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-inter flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-gray-50/50 font-inter pb-20 md:pb-0 flex">
       <Helmet><title>Dashboard - QuickMeal</title></Helmet>
 
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-2">
-            <Store className="w-5 h-5 text-white" />
+      {/* --- DESKTOP SIDEBAR --- */}
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-screen sticky top-0 z-50">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-8 text-orange-600">
+            <Store className="w-8 h-8 fill-current" />
+            <span className="text-2xl font-black tracking-tight text-gray-900">QuickMeal</span>
           </div>
-          <span className="font-bold text-lg">QuickMeal</span>
+
+          <nav className="space-y-1">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'dashboard' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Home className="w-5 h-5" /> Home
+            </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'orders' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Receipt className="w-5 h-5" /> My Orders
+            </button>
+            <button
+              onClick={() => setActiveTab('account')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'account' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <User className="w-5 h-5" /> Account
+            </button>
+          </nav>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-600">
-          {isSidebarOpen ? <X /> : <Menu />}
-        </button>
-      </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed top-0 left-0 z-50 h-screen w-64 bg-white shadow-xl border-r border-gray-200 
-          transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0 lg:sticky lg:top-0
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        <div className="flex flex-col h-full">
-          <div className="p-6">
-            <div className="flex items-center mb-8 hidden lg:flex">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
-                <Store className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 ml-3">QuickMeal</h1>
+        <div className="mt-auto p-6 border-t border-gray-100">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold">
+              {user?.name?.charAt(0)}
             </div>
-
-            <nav className="space-y-2">
-              <button
-                onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center px-4 py-3 rounded-xl ${activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                <Home className="w-5 h-5 mr-3" /> Dashboard
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center px-4 py-3 rounded-xl ${activeTab === 'orders'
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                <ShoppingBag className="w-5 h-5 mr-3" /> My Orders
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('account'); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center px-4 py-3 rounded-xl ${activeTab === 'account'
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-              >
-                <Settings className="w-5 h-5 mr-3" /> Account
-              </button>
-            </nav>
+            <div className="overflow-hidden">
+              <p className="font-medium text-gray-900 truncate">{user?.name}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            </div>
           </div>
-          <div className="p-6 mt-auto">
-            <Button onClick={handleLogout} variant="outline" className="w-full border-gray-200 hover:bg-gray-50">
-              <LogOut className="w-4 h-4 mr-2" /> Logout
-            </Button>
-          </div>
+          <Button onClick={handleLogout} variant="outline" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100">
+            <LogOut className="w-4 h-4 mr-2" /> Logout
+          </Button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 p-4 lg:p-8 w-full">
-        {activeTab === 'dashboard' && (
-          <>
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 w-full max-w-5xl mx-auto md:p-8 p-4">
+
+        {/* Mobile Header */}
+        <div className="md:hidden flex justify-between items-center mb-6 pt-2">
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Welcome back</p>
+            <h1 className="text-2xl font-bold text-gray-900">{user?.name} 👋</h1>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold border-2 border-white shadow-sm">
+            {user?.name?.charAt(0)}
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'dashboard' && (
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="mb-8"
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-8"
             >
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Welcome back, {user?.name}! 👋
-              </h1>
-              <p className="text-gray-600">
-                Discover restaurants around your university
-              </p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-              {/* Profile Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="lg:col-span-1"
-              >
-                <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0 shadow-xl">
-                  <CardContent className="p-6 text-center">
-                    <div className="relative mb-4">
-                      <div className="w-20 h-20 mx-auto bg-white/20 rounded-full p-1">
-                        <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
-                          <User className="w-10 h-10 text-orange-500" />
-                        </div>
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold mb-1">{user?.name}</h3>
-                    <p className="text-white/80 text-sm mb-3">{user?.email}</p>
-                    {user?.university_name && (
-                      <Badge className="bg-white/20 text-white">{user.university_name}</Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* Stores */}
-              <div className="lg:col-span-3">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Available Restaurants{' '}
-                    {user?.university_name && (
-                      <span className="text-lg font-normal text-gray-600 ml-2">
-                        at {user.university_name}
-                      </span>
-                    )}
+              {/* Hero Section */}
+              <div className="bg-gray-900 rounded-3xl p-6 md:p-10 text-white relative overflow-hidden shadow-xl">
+                <div className="relative z-10 max-w-lg">
+                  <h2 className="text-2xl md:text-4xl font-bold mb-4 leading-tight">
+                    Hungry? <br /> Let's get some food.
                   </h2>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                    {stores.filter(s => s.isOpen && s.acceptingOrders).length} open now
-                  </div>
+                  <p className="text-gray-300 mb-6">Explore the best food spots around {user?.university_name || 'your university'}.</p>
+                  <Button onClick={() => document.getElementById('stores-grid').scrollIntoView({ behavior: 'smooth' })} className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6">
+                    Browse Restaurants
+                  </Button>
+                </div>
+                {/* Decorative Blob */}
+                <div className="absolute -right-10 -bottom-20 w-64 h-64 bg-orange-500 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
+              </div>
+
+              {/* Stores Grid */}
+              <div id="stores-grid">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">Nearby Restaurants</h3>
+                  <Badge variant="secondary" className="bg-white text-gray-600 border-gray-200">
+                    {stores.filter(s => s.isOpen && s.acceptingOrders).length} Active
+                  </Badge>
                 </div>
 
                 {stores.length === 0 ? (
-                  <Card className="bg-white shadow-xl border-0 text-center py-16">
-                    <CardContent>
-                      <Store className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <h3 className="text-xl font-semibold mb-2 text-gray-600">
-                        No Restaurants Available
-                      </h3>
-                      <p className="text-gray-500">
-                        If you just registered, admin may need to approve merchants. Or try a different university.
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 border-dashed">
+                    <Store className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+                    <p className="text-gray-500 font-medium">No restaurants available yet.</p>
+                  </div>
                 ) : (
-                  <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {stores.map((store) => {
-                      const storeStatus = getStoreStatus(store);
-                      return (
-                        <Card
-                          key={store.id}
-                          className="bg-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden h-full"
-                        >
-                          <CardContent className="p-6 space-y-4">
-                            <div>
-                              <h3 className="text-xl font-bold text-gray-900 mb-2">{store.storeName}</h3>
-                              <div className="flex items-center text-gray-500 text-sm">
-                                <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                                <span className="truncate">{store.storeAddress}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl">
-                              <MealTimeIcon time={store.activeMealTime} />
-                              <span className="text-sm font-medium text-gray-700">
-                                Accepting <span className="font-semibold">{store.activeMealTime}</span> orders
-                              </span>
-                            </div>
-                          </CardContent>
-                          <CardFooter className="p-6 pt-0">
-                            {store.isOpen && store.acceptingOrders ? (
-                              <Link to={`/order/${store.id}`} className="w-full">
-                                <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                                  Order Now
-                                </Button>
-                              </Link>
-                            ) : (
-                              <Button disabled className="w-full">Not Accepting Orders</Button>
-                            )}
-                          </CardFooter>
-                        </Card>
-                      );
-                    })}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {stores.map(store => (
+                      <StoreCard key={store.id} store={store} />
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          </>
-        )}
+            </motion.div>
+          )}
 
-        {activeTab === 'orders' && (
-          <div className="animate-in fade-in duration-500">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">My Order History</h1>
-            {orders.length === 0 ? (
-              <Card className="text-center py-12">
-                <CardContent>
-                  <ShoppingBag className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900">No orders yet</h3>
-                  <p className="text-gray-500 mt-1">When you place an order, it will appear here.</p>
-                  <Button
-                    className="mt-4 bg-orange-500 hover:bg-orange-600"
-                    onClick={() => setActiveTab('dashboard')}
-                  >
-                    Browse Restaurants
+          {activeTab === 'orders' && (
+            <motion.div
+              key="orders"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Orders</h2>
+              {orders.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Receipt className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">No orders yet</h3>
+                  <p className="text-gray-500 mt-2 max-w-xs mx-auto">Looks like you haven't placed any orders yet. Go ahead and treat yourself!</p>
+                  <Button onClick={() => setActiveTab('dashboard')} className="mt-6 bg-orange-600 hover:bg-orange-700">
+                    Browse Food
                   </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <Card key={order.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="p-3 bg-orange-100 rounded-lg">
-                          <Receipt className="w-6 h-6 text-orange-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-lg text-gray-900">{order.store_name}</h3>
-                          <div className="text-sm text-gray-500 space-y-1">
-                            <p>Order #{order.id}</p>
-                            <p>{order.created_at}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                        <div className="text-right">
-                          <p className="font-bold text-lg">LKR {order.total}</p>
-                          {getStatusBadge(order.status)}
-                        </div>
-                        <Link to={`/receipt/${order.id}`}>
-                          <Button variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50">
-                            View Receipt
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'account' && (
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h1>
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h3 className="text-xl font-semibold">Account Information</h3>
-              <p className="text-gray-900 font-medium mt-2">{user?.name}</p>
-              <p className="text-gray-700">{user?.email}</p>
-              {user?.university_name && (
-                <p className="text-gray-700 mt-2">University: {user.university_name}</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {orders.map(order => (
+                    <OrderHistoryCard key={order.id} order={order} />
+                  ))}
+                </div>
               )}
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+
+          {activeTab === 'account' && (
+            <motion.div
+              key="account"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md mx-auto"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">My Account</h2>
+              <div className="bg-white rounded-3xl p-8 shadow-xl shadow-orange-50 border border-orange-100 text-center">
+                <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full mx-auto flex items-center justify-center text-4xl text-white font-bold mb-4 shadow-lg">
+                  {user?.name?.charAt(0)}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">{user?.name}</h3>
+                <p className="text-gray-500 mb-6">{user?.email}</p>
+
+                <div className="bg-gray-50 rounded-xl p-4 text-left mb-6">
+                  <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">University</p>
+                  <p className="font-medium text-gray-800">{user?.university_name || 'Not set'}</p>
+                </div>
+
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 h-12 rounded-xl"
+                >
+                  Sign Out
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
+
+      {/* Mobile Bottom Nav */}
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 };

@@ -8,146 +8,143 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Clock,
-  CheckCircle2,
-  XCircle,
-  ChefHat,
-  ShoppingBag,
-  DollarSign,
-  User,
-  Calendar,
-  Utensils
-} from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Utensils, CheckCircle2, Clock } from 'lucide-react';
 
 const OrderDetailModal = ({ order, onUpdateStatus }) => {
   if (!order) return null;
 
-  const isMultiMeal = Array.isArray(order.meals);
+  // Separate items for better display
+  const items = order.items || [];
+  const mainMeals = items.filter(i => i.food_type === 'main_meal');
+  const otherItems = items.filter(i => i.food_type !== 'main_meal');
 
   const getOrderStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200';
-      case 'preparing':
-        return 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200';
-      case 'ready':
-        return 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200';
-      case 'completed':
-        return 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200';
-      case 'canceled':
-        return 'destructive'; // Standard variant
-      default:
-        return 'secondary';
-    }
-  };
-
-  const StatusIcon = ({ status }) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4 mr-1" />;
-      case 'preparing': return <ChefHat className="w-4 h-4 mr-1" />;
-      case 'ready': return <ShoppingBag className="w-4 h-4 mr-1" />;
-      case 'completed': return <CheckCircle2 className="w-4 h-4 mr-1" />;
-      case 'canceled': return <XCircle className="w-4 h-4 mr-1" />;
-      default: return null;
-    }
+    const statusMap = {
+      pending: 'secondary',
+      preparing: 'default', // Blueish usually
+      ready: 'default',
+      completed: 'success',
+      cancelled: 'destructive'
+    };
+    return statusMap[status] || 'secondary';
   };
 
   return (
-    <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-sm border border-gray-100 shadow-2xl">
-      <DialogHeader className="border-b pb-4">
-        <div className="flex justify-between items-start">
+    <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogHeader>
+        <div className="flex justify-between items-start pr-4">
           <div>
-            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              Order #{order.id}
-            </DialogTitle>
-            <DialogDescription className="text-gray-500 mt-1 flex items-center gap-1">
-              <User className="w-3 h-3" />
+            <DialogTitle className="text-xl font-bold">Order #{order.id}</DialogTitle>
+            <DialogDescription className="mt-1">
               {order.customer_name || 'Guest Customer'}
             </DialogDescription>
           </div>
-          <Badge className={`${getOrderStatusColor(order.status)} px-3 py-1 flex items-center shadow-sm`}>
-            <StatusIcon status={order.status} />
-            <span className="capitalize font-semibold">{order.status}</span>
+          <Badge variant={getOrderStatusColor(order.status)} className="capitalize px-3 py-1 text-sm">
+            {order.status}
           </Badge>
         </div>
       </DialogHeader>
 
-      <div className="py-4 space-y-6">
-        {/* Order Details Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col space-y-1 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center gap-1">
-              <Calendar className="w-3 h-3" /> Order Date
-            </span>
-            <span className="text-sm font-semibold text-gray-700">
-              {new Date(order.created_at || order.createdAt).toLocaleDateString()}
-            </span>
-            <span className="text-xs text-gray-500">
-              {new Date(order.created_at || order.createdAt).toLocaleTimeString()}
-            </span>
-          </div>
+      <div className="flex-1 overflow-y-auto pr-2 space-y-6">
 
-          <div className="flex flex-col space-y-1 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center gap-1">
-              <Utensils className="w-3 h-3" /> Total Meals
-            </span>
-            <span className="text-lg font-bold text-gray-900">
-              {order.meal_count}
-            </span>
+        {/* Order Meta */}
+        <div className="flex items-center gap-4 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4" />
+            <span>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <Separator orientation="vertical" className="h-4" />
+          <div>
+            {items.reduce((acc, i) => acc + i.quantity, 0)} Items
           </div>
         </div>
 
-        {/* Financial Summary */}
-        <div className="space-y-3">
-          <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm uppercase tracking-wide">
-            <DollarSign className="w-4 h-4 text-orange-500" />
-            Payment Summary
-          </h4>
-
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Meal Cost</span>
-              <span className="font-medium text-gray-900">LKR {Number(order.meal_total || 0).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Platform Fee</span>
-              <span className="font-medium text-gray-900">LKR {Number(order.website_charge || 0).toFixed(2)}</span>
-            </div>
-
-            <div className="border-t border-gray-200 my-2 pt-2 flex justify-between items-center">
-              <span className="font-bold text-gray-800">Total Amount</span>
-              <span className="font-bold text-lg text-orange-600">
-                LKR {Number(order.total || 0).toFixed(2)}
-              </span>
+        {/* --- MAIN MEALS --- */}
+        {mainMeals.length > 0 && (
+          <div>
+            <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Utensils className="w-4 h-4 text-orange-600" /> Main Meals
+            </h4>
+            <div className="space-y-3">
+              {mainMeals.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-start p-3 bg-white border border-orange-100 rounded-xl shadow-sm">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-lg text-gray-800">{item.quantity}x</span>
+                      <span className="font-semibold text-gray-900">{item.food_name}</span>
+                    </div>
+                    {item.portion && (
+                      <Badge variant="outline" className="mt-1 text-xs text-orange-600 border-orange-200 bg-orange-50">
+                        Size: {item.portion}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-medium text-gray-900">LKR {Number(item.price * item.quantity).toFixed(0)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        )}
+
+        {/* --- SIDES / CURRIES / EXTRAS --- */}
+        {otherItems.length > 0 && (
+          <div>
+            <h4 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider text-gray-500 mt-2">
+              Sides & Curries
+            </h4>
+            <div className="space-y-2">
+              {otherItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-gray-500 w-6 text-right">{item.quantity}x</span>
+                    <span className="text-gray-700">{item.food_name}</span>
+                  </div>
+                  {Number(item.price) > 0 ? (
+                    <span className="text-sm font-medium text-gray-600">LKR {Number(item.price * item.quantity).toFixed(0)}</span>
+                  ) : (
+                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">FREE</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Separator />
+
+        {/* --- TOTAL --- */}
+        <div className="flex justify-between items-center pt-2">
+          <span className="text-lg font-bold text-gray-600">Total Amount</span>
+          <span className="text-2xl font-black text-orange-600">LKR {Number(order.total).toFixed(0)}</span>
         </div>
       </div>
 
-      <DialogFooter className="sm:justify-between gap-3 border-t pt-4">
+      <DialogFooter className="mt-4 pt-4 border-t border-gray-100">
         {order.status === 'pending' && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'preparing')}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-all active:scale-95 text-base font-medium h-11"
+            className="bg-blue-600 hover:bg-blue-700 text-white w-full h-11 text-lg shadow-lg shadow-blue-100"
           >
-            <ChefHat className="w-4 h-4 mr-2" /> Start Preparing
+            Accept & Start Cooking
           </Button>
         )}
         {(order.status === 'preparing' || order.status === 'accepted') && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'ready')}
-            className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md transition-all active:scale-95 text-base font-medium h-11"
+            className="bg-green-600 hover:bg-green-700 text-white w-full h-11 text-lg shadow-lg shadow-green-100"
           >
-            <ShoppingBag className="w-4 h-4 mr-2" /> Mark Ready for Pickup
+            Mark Ready for Pickup
           </Button>
         )}
         {order.status === 'ready' && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'completed')}
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white shadow-md transition-all active:scale-95 text-base font-medium h-11"
+            className="bg-gray-800 hover:bg-gray-900 text-white w-full h-11 text-lg"
           >
-            <CheckCircle2 className="w-4 h-4 mr-2" /> Complete Order
+            <CheckCircle2 className="w-5 h-5 mr-2" /> Complete Order
           </Button>
         )}
       </DialogFooter>

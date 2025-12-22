@@ -277,30 +277,26 @@ const OrderPage = () => {
 
               if (isPrimary) {
                 // Primary Curry
-                // 1st piece: Portion Price
+                // Consolidated Logic: Merge Portion Price + Extra Pieces into ONE line item
+                // Total Price = PortionPrice + (ExtraQty * ExtraUnitPrice)
+                // Unit Price sent to DB = Total Price / Total Qty
+
+                let totalPrimaryCost = primaryNonVegPortionPrice;
+                let extraCost = 0;
+
+                if (food.is_divisible == 1 && qty > 1) {
+                  const extraUnitCost = parseFloat(food.extra_piece_price || food.price) || 0;
+                  extraCost = (qty - 1) * extraUnitCost;
+                }
+
+                const finalTotalCost = totalPrimaryCost + extraCost;
+                const finalUnitPrice = finalTotalCost / qty;
+
                 items.push({
                   food_id: food.id,
-                  quantity: 1,
-                  price: primaryNonVegPortionPrice
+                  quantity: qty,
+                  price: finalUnitPrice
                 });
-                // Extra pieces: Calculated by helper (if divisible)
-                if (food.is_divisible == 1 && qty > 1) {
-                  // We need to add the extra pieces as a separate item or just one item with total price?
-                  // Usually better to separate for clarity, or aggregate.
-                  // The helper returns the TOTAL price for the extra pieces.
-                  // Let's add them as separate line items for clarity if possible, or just one entry.
-                  // Existing logic separated them. Let's keep that pattern but use helper logic to be sure.
-
-                  // Actually, the helper returns the TOTAL cost for the extra pieces.
-                  // So if we have 2 extra pieces at 50 each, helper returns 100.
-                  // We should add an item with quantity (qty-1) and price (food.price).
-
-                  items.push({
-                    food_id: food.id,
-                    quantity: qty - 1,
-                    price: parseFloat(food.price) || 0
-                  });
-                }
               } else {
                 // Secondary Curry
                 // We can use the helper to determine the unit price effectively.

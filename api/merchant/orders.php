@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../helpers.php';
 
 $pdo = getPDO();
 
-// Safe session
+// Safe session start
 if (session_status() === PHP_SESSION_NONE) {
     session_name('quickmeal_session');
     session_set_cookie_params([
@@ -28,8 +28,56 @@ if (!$merchant_id) {
     send_json(['ok' => false, 'error' => 'Merchant not found'], 404);
 }
 
+/**
+ * Helper to fetch and attach items to a list of orders
+ */
+function attachItemsToOrders($pdo, $orders) {
+    if (empty($orders)) return [];
+
+    // Get all order IDs
+    $orderIds = array_column($orders, 'id');
+    
+    // Check if 'portion' column exists to avoid errors if DB isn't updated yet
+    $hasPortion = false;
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM order_items LIKE 'portion'");
+        $hasPortion = $check->fetch() !== false;
+    } catch (Exception $e) {}
+
+    $portionCol = $hasPortion ? ", oi.portion" : "";
+
+    // Prepare placeholders
+    $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+
+    // Fetch all items for these orders
+    $sql = "
+        SELECT oi.order_id, oi.quantity, oi.price, oi.food_id $portionCol,
+               f.name AS food_name, f.food_type, f.is_veg
+        FROM order_items oi
+        JOIN foods f ON oi.food_id = f.id
+        WHERE oi.order_id IN ($placeholders)
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($orderIds);
+    $all_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group items by order_id
+    $items_by_order = [];
+    foreach ($all_items as $item) {
+        $items_by_order[$item['order_id']][] = $item;
+    }
+
+    // Attach to original orders
+    foreach ($orders as &$order) {
+        $order['items'] = $items_by_order[$order['id']] ?? [];
+    }
+
+    return $orders;
+}
+
 try {
-    // Pending
+    // 1. Fetch Pending Orders
     $stmt = $pdo->prepare("
         SELECT o.*, u.name AS customer_name 
         FROM orders o 
@@ -39,8 +87,9 @@ try {
     ");
     $stmt->execute([$merchant_id]);
     $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $pending = attachItemsToOrders($pdo, $pending);
 
-    // Active
+    // 2. Fetch Active Orders (Preparing/Ready)
     $stmt = $pdo->prepare("
         SELECT o.*, u.name AS customer_name 
         FROM orders o 
@@ -50,8 +99,9 @@ try {
     ");
     $stmt->execute([$merchant_id]);
     $active = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $active = attachItemsToOrders($pdo, $active);
 
-    // Today
+    // 3. Stats (Today)
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as count 
         FROM orders 
@@ -61,7 +111,7 @@ try {
     $stmt->execute([$merchant_id]);
     $today = $stmt->fetchColumn();
 
-    // This month
+    // 4. Stats (Month)
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as count 
         FROM orders 
